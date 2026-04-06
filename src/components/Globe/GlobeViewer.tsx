@@ -27,7 +27,7 @@ import { SatelliteManager, ISSInfo, ArtemisInfo } from "@/lib/satelliteManager";
 import { NewsRenderer } from "@/lib/newsRenderer";
 import { WebcamRenderer } from "@/lib/webcamRenderer";
 import { getMoonPositionECEF } from "@/lib/artemis";
-import { NewsArticle, Webcam, WeatherTileLayerKey, ArtemisViewMode } from "@/types";
+import { NewsArticle, NewsCategory, Webcam, WeatherTileLayerKey, ArtemisViewMode } from "@/types";
 
 // Configure Cesium static asset paths
 if (typeof window !== "undefined") {
@@ -53,6 +53,7 @@ interface GlobeViewerProps {
   isMobile?: boolean;
   showNews?: boolean;
   newsArticles?: NewsArticle[];
+  newsCategories?: Set<NewsCategory>;
   onNewsClick?: (article: NewsArticle, lat: number, lon: number) => void;
   showWebcams?: boolean;
   onWebcamClick?: (webcam: Webcam) => void;
@@ -70,7 +71,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -427,9 +428,13 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
   // Render news articles when data changes or viewer becomes ready
   useEffect(() => {
     if (newsRendererRef.current && newsArticles && showNews) {
-      newsRendererRef.current.render(newsArticles);
+      if (newsCategories) {
+        newsRendererRef.current.setVisibleCategories(newsCategories, newsArticles);
+      } else {
+        newsRendererRef.current.render(newsArticles);
+      }
     }
-  }, [newsArticles, showNews, cesiumReady]);
+  }, [newsArticles, showNews, cesiumReady, newsCategories]);
 
   // Toggle webcam layer visibility + fetch webcams on camera move
   useEffect(() => {

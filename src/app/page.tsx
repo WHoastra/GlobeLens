@@ -9,7 +9,8 @@ import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode } from "@/types";
+import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory } from "@/types";
+import { NEWS_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 
 // CesiumJS must be loaded client-side only (no SSR)
@@ -59,6 +60,7 @@ export default function Home() {
   // News state — fetched globally when News layer is on
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
+  const [newsCategories, setNewsCategories] = useState<Set<NewsCategory>>(() => new Set<NewsCategory>(["conflict", "finance", "tech", "politics", "world"]));
 
   // Webcam state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -160,7 +162,7 @@ export default function Home() {
       })
       .then((data) => {
         if (!Array.isArray(data)) return;
-        const articles: NewsArticle[] = data.map((a: { title: string; url: string; socialimage: string; domain: string; sourcecountry: string; seendate: string; lat: number; lng: number; location: string }, i: number) => ({
+        const articles: NewsArticle[] = data.map((a: { title: string; url: string; socialimage: string; domain: string; sourcecountry: string; seendate: string; lat: number; lng: number; location: string; category: string }, i: number) => ({
           id: `news-${i}`,
           title: a.title,
           text: a.title,
@@ -170,7 +172,8 @@ export default function Home() {
           publishDate: a.seendate ? `${a.seendate.slice(0,4)}-${a.seendate.slice(4,6)}-${a.seendate.slice(6,8)}` : "",
           latitude: a.lat,
           longitude: a.lng,
-          category: a.location,
+          category: (a.category || "world") as NewsCategory,
+          location: a.location,
         }));
         setNewsArticles(articles);
       })
@@ -203,6 +206,7 @@ export default function Home() {
         showISSOrbit={showISSOrbit && showISS}
         showNews={layers.news}
         newsArticles={newsArticles}
+        newsCategories={newsCategories}
         onNewsClick={(article) => handleNewsClick(article)}
         showWebcams={layers.webcams}
         onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setLiveFeed(null); setSelectedArticle(null); if (isMobile) setBottomSheet("webcam"); }}
@@ -223,6 +227,12 @@ export default function Home() {
         onToggle={handleToggle}
         activeWeatherLayers={activeWeatherLayers}
         onWeatherLayerToggle={handleWeatherLayerToggle}
+        newsCategories={newsCategories}
+        onNewsCategoryToggle={(cat) => setNewsCategories((prev) => {
+          const next = new Set<NewsCategory>(prev);
+          if (next.has(cat)) next.delete(cat); else next.add(cat);
+          return next;
+        })}
       />
 
       {/* Logo / Branding */}
@@ -269,6 +279,30 @@ export default function Home() {
                 {label}
               </button>
             ))}
+            {/* News category filters */}
+            {layers.news && (
+              <div className="flex flex-wrap gap-1 px-1">
+                {NEWS_CATEGORIES.map(({ key, label, color }) => {
+                  const active = newsCategories.has(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setNewsCategories((prev) => {
+                        const next = new Set<NewsCategory>(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
+                        return next;
+                      })}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium border transition-all ${
+                        active ? "border-white/30 text-white" : "border-white/5 text-white/30"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color, opacity: active ? 1 : 0.3 }} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="border-t border-white/10 my-1" />
             <p className="text-[9px] text-white/30 uppercase tracking-wider px-1 mb-1">Space Tracking</p>
             <button
@@ -470,12 +504,12 @@ export default function Home() {
       {!isMobile && selectedArticle && (
         <div className="absolute bottom-4 left-80 z-10 w-80 rounded-xl border border-red-400/20 bg-black/70 backdrop-blur-xl text-white shadow-2xl p-4">
           <div className="flex items-start justify-between gap-2 mb-2">
-            {selectedArticle.category && (
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-400" />
-                <span className="text-[10px] font-medium text-red-300 uppercase tracking-wide">{selectedArticle.category}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }} />
+              <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }}>
+                {NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.label || selectedArticle.category}
+              </span>
+            </div>
             <button
               onClick={() => setSelectedArticle(null)}
               className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0 ml-auto"
@@ -662,6 +696,18 @@ export default function Home() {
         </button>
       </div>
 
+      {/* News category legend */}
+      {layers.news && newsArticles.length > 0 && (
+        <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 z-10 flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+          {NEWS_CATEGORIES.map(({ key, label, color }) => (
+            <div key={key} className="flex items-center gap-1">
+              <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Attribution */}
       <div className="absolute bottom-2 right-2 z-10">
         <p className="text-[8px] md:text-[10px] text-white/30 tracking-wide">
@@ -712,12 +758,12 @@ export default function Home() {
               )}
               {bottomSheet === "news" && selectedArticle && (
                 <div className="space-y-3">
-                  {selectedArticle.category && (
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                      <span className="text-xs font-medium text-red-300 uppercase tracking-wide">{selectedArticle.category}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }} />
+                    <span className="text-xs font-medium uppercase tracking-wide" style={{ color: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }}>
+                      {NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.label || selectedArticle.category}
+                    </span>
+                  </div>
                   <h3 className="text-base font-semibold text-white leading-snug">{selectedArticle.title}</h3>
                   <div className="flex items-center gap-2 text-xs text-white/40">
                     <span>{selectedArticle.source}</span>

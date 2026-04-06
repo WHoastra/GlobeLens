@@ -1,13 +1,15 @@
 "use client";
 
 import { Newspaper, Cloud, Camera, Car, Satellite } from "lucide-react";
-import { LayerState, LayerType, WeatherTileLayerKey } from "@/types";
+import { LayerState, LayerType, WeatherTileLayerKey, NewsCategory, NEWS_CATEGORIES } from "@/types";
 
 interface LayerToggleProps {
   layers: LayerState;
   onToggle: (layer: LayerType) => void;
   activeWeatherLayers?: WeatherTileLayerKey[];
   onWeatherLayerToggle?: (layer: WeatherTileLayerKey) => void;
+  newsCategories?: Set<NewsCategory>;
+  onNewsCategoryToggle?: (cat: NewsCategory) => void;
 }
 
 const WEATHER_TILE_OPTIONS: { key: WeatherTileLayerKey; label: string; color: string }[] = [
@@ -69,7 +71,7 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
   },
 };
 
-export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle }: LayerToggleProps) {
+export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle }: LayerToggleProps) {
   return (
     <div className="absolute z-10 hidden md:flex md:top-4 md:right-4 md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
@@ -88,6 +90,29 @@ export default function LayerToggle({ layers, onToggle, activeWeatherLayers = []
             <Icon size={16} />
             <span className="hidden md:inline">{label}</span>
           </button>
+
+          {/* News category toggles */}
+          {key === "news" && layers.news && newsCategories && onNewsCategoryToggle && (
+            <div className="hidden md:flex gap-1 mt-1 ml-1 flex-wrap">
+              {NEWS_CATEGORIES.map(({ key: cat, label: catLabel, color }) => {
+                const isActive = newsCategories.has(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => onNewsCategoryToggle(cat)}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all border ${
+                      isActive
+                        ? "border-white/30 text-white"
+                        : "border-white/10 text-white/30"
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: isActive ? 1 : 0.3 }} />
+                    {catLabel}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Weather sub-layer toggles */}
           {key === "weather" && layers.weather && (

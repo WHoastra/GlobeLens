@@ -15,18 +15,35 @@ import {
   PolylineGlowMaterialProperty,
   CallbackProperty,
 } from "cesium";
-import { NewsArticle } from "@/types";
+import { NewsArticle, NewsCategory } from "@/types";
 
 interface NewsCluster {
   latitude: number;
   longitude: number;
   count: number;
   articles: NewsArticle[];
+  category: NewsCategory;
 }
 
 const CLUSTER_RADIUS_DEG = 5;
-const BEAM_HEIGHT = 500_000; // 500km above surface
+const BEAM_HEIGHT = 500_000;
 const TOP_BEAM_COUNT = 10;
+
+const CATEGORY_COLORS: Record<NewsCategory, Color> = {
+  conflict: Color.fromCssColorString("#FF3333"),
+  finance: Color.fromCssColorString("#33CC33"),
+  tech: Color.fromCssColorString("#4A90D9"),
+  politics: Color.fromCssColorString("#FFD700"),
+  world: Color.WHITE,
+};
+
+const CATEGORY_LABELS: Record<NewsCategory, string> = {
+  conflict: "WAR",
+  finance: "FINANCE",
+  tech: "TECH",
+  politics: "POLITICS",
+  world: "WORLD",
+};
 
 function clusterArticles(articles: NewsArticle[]): NewsCluster[] {
   const clusters: NewsCluster[] = [];
@@ -34,6 +51,8 @@ function clusterArticles(articles: NewsArticle[]): NewsCluster[] {
   for (const article of articles) {
     let found = false;
     for (const cluster of clusters) {
+      // Only cluster within same category
+      if (cluster.category !== article.category) continue;
       const dlat = Math.abs(cluster.latitude - article.latitude);
       const dlon = Math.abs(cluster.longitude - article.longitude);
       if (dlat < CLUSTER_RADIUS_DEG && dlon < CLUSTER_RADIUS_DEG) {
@@ -51,18 +70,12 @@ function clusterArticles(articles: NewsArticle[]): NewsCluster[] {
         longitude: article.longitude,
         count: 1,
         articles: [article],
+        category: article.category,
       });
     }
   }
 
   return clusters.sort((a, b) => b.count - a.count);
-}
-
-function intensityColor(count: number, maxCount: number): Color {
-  const t = Math.min(count / Math.max(maxCount * 0.5, 1), 1);
-  if (t < 0.33) return Color.fromCssColorString("#FFD700").withAlpha(0.7);
-  if (t < 0.66) return Color.fromCssColorString("#FF8C00").withAlpha(0.85);
-  return Color.fromCssColorString("#FF2020").withAlpha(1.0);
 }
 
 interface NewsRendererOptions {
@@ -75,12 +88,14 @@ export class NewsRenderer {
   private heatPoints: PointPrimitiveCollection | null = null;
   private pinPoints: PointPrimitiveCollection | null = null;
   private pinLabels: LabelCollection | null = null;
-  private beamEntities: Entity[] = [];
+  private beamEntities: { entity: Entity; category: NewsCategory }[] = [];
   private clusters: NewsCluster[] = [];
   private handler: ScreenSpaceEventHandler | null = null;
   private onArticleClick: ((article: NewsArticle, lat: number, lon: number) => void) | null = null;
   private maxClusters: number | undefined;
   private topBeamCountLimit: number;
+  private isVisible = true;
+  private visibleCategories: Set<NewsCategory> = new Set<NewsCategory>(["conflict", "finance", "tech", "politics", "world"]);
 
   constructor(viewer: Viewer, options?: NewsRendererOptions) {
     this.viewer = viewer;
@@ -112,32 +127,31 @@ export class NewsRenderer {
     if (!this.heatPoints || !this.pinPoints || !this.pinLabels) return;
     if (this.viewer.isDestroyed()) return;
 
-    // Clear existing
     this.heatPoints.removeAll();
     this.pinPoints.removeAll();
     this.pinLabels.removeAll();
     this.clearBeams();
 
-    this.clusters = clusterArticles(articles);
+    // Only render visible categories
+    const filtered = articles.filter((a) => this.visibleCategories.has(a.category));
+
+    this.clusters = clusterArticles(filtered);
     if (this.maxClusters) {
       this.clusters = this.clusters.slice(0, this.maxClusters);
     }
-    const maxCount = this.clusters[0]?.count ?? 1;
 
     for (let i = 0; i < this.clusters.length; i++) {
       const cluster = this.clusters[i];
-      const color = intensityColor(cluster.count, maxCount);
+      const color = CATEGORY_COLORS[cluster.category] || Color.WHITE;
       const isTopStory = i < this.topBeamCountLimit;
 
       if (isTopStory) {
-        // ── NEWS BEAM for top 10 stories ────────────────────
         this.renderBeam(cluster, color, i);
       } else {
-        // ── Regular pin for other stories ────────────────────
         this.renderPin(cluster, color);
       }
 
-      // Heatmap glow dot for all clusters
+      // Heatmap glow dot
       this.heatPoints.add({
         position: Cartesian3.fromDegrees(cluster.longitude, cluster.latitude, 50000),
         pixelSize: Math.min(20 + cluster.count * 3, 60),
@@ -156,18 +170,12 @@ export class NewsRenderer {
     const topPos = Cartesian3.fromDegrees(cluster.longitude, cluster.latitude, BEAM_HEIGHT);
     const headline = cluster.articles[0]?.title ?? `${cluster.count} stories`;
     const truncatedHeadline = headline.length > 50 ? headline.substring(0, 50) + "..." : headline;
+    const categoryLabel = CATEGORY_LABELS[cluster.category] || "NEWS";
 
-    // Beam glow color — red for #1, orange gradient for rest
-    const beamColor = rank === 0
-      ? Color.RED.withAlpha(0.9)
-      : rank < 3
-        ? Color.fromCssColorString("#FF4500").withAlpha(0.8)
-        : Color.fromCssColorString("#FF8C00").withAlpha(0.7);
-
-    // Animated glow power using CallbackProperty for pulse effect
+    const beamColor = color.withAlpha(rank < 3 ? 0.9 : 0.7);
     const startTime = Date.now();
 
-    // Beam polyline entity with glow
+    // Beam polyline
     const beamEntity = this.viewer.entities.add({
       polyline: {
         positions: [groundPos, topPos],
@@ -175,24 +183,24 @@ export class NewsRenderer {
         material: new PolylineGlowMaterialProperty({
           glowPower: new CallbackProperty(() => {
             const elapsed = (Date.now() - startTime) / 1000;
-            return 0.2 + Math.sin(elapsed * 2) * 0.1; // pulsing glow
+            return 0.2 + Math.sin(elapsed * 2) * 0.1;
           }, false) as unknown as number,
           color: beamColor,
         }),
       },
     });
-    this.beamEntities.push(beamEntity);
+    this.beamEntities.push({ entity: beamEntity, category: cluster.category });
 
-    // Headline label at top of beam
+    // Category tag + headline label at top
     const labelEntity = this.viewer.entities.add({
       position: topPos,
       label: {
-        text: truncatedHeadline,
-        font: rank < 3 ? "bold 18px sans-serif" : "bold 15px sans-serif",
+        text: `${categoryLabel} | ${truncatedHeadline}`,
+        font: rank < 3 ? "bold 16px sans-serif" : "bold 13px sans-serif",
         fillColor: Color.WHITE,
         outlineColor: Color.BLACK,
         outlineWidth: 4,
-        style: 2, // FILL_AND_OUTLINE
+        style: 2,
         horizontalOrigin: HorizontalOrigin.LEFT,
         verticalOrigin: VerticalOrigin.BOTTOM,
         pixelOffset: new Cartesian2(8, -4),
@@ -203,16 +211,16 @@ export class NewsRenderer {
         backgroundPadding: new Cartesian2(6, 4),
       },
     });
-    this.beamEntities.push(labelEntity);
+    this.beamEntities.push({ entity: labelEntity, category: cluster.category });
 
-    // Count badge if multiple stories
+    // Count badge
     if (cluster.count > 1) {
       const badgeEntity = this.viewer.entities.add({
         position: Cartesian3.fromDegrees(cluster.longitude, cluster.latitude, BEAM_HEIGHT * 0.85),
         label: {
           text: `${cluster.count} stories`,
           font: "10px sans-serif",
-          fillColor: beamColor,
+          fillColor: color,
           outlineColor: Color.BLACK,
           outlineWidth: 3,
           style: 2,
@@ -223,15 +231,15 @@ export class NewsRenderer {
           disableDepthTestDistance: 0,
         },
       });
-      this.beamEntities.push(badgeEntity);
+      this.beamEntities.push({ entity: badgeEntity, category: cluster.category });
     }
 
-    // Ground pin — pulsing red dot at base of beam
+    // Ground pin
     if (this.pinPoints) {
       this.pinPoints.add({
         position: Cartesian3.fromDegrees(cluster.longitude, cluster.latitude, 5000),
         pixelSize: 8,
-        color: beamColor,
+        color: color,
         outlineColor: Color.WHITE,
         outlineWidth: 2,
         show: true,
@@ -278,10 +286,18 @@ export class NewsRenderer {
   }
 
   private clearBeams() {
-    for (const entity of this.beamEntities) {
+    for (const { entity } of this.beamEntities) {
       this.viewer.entities.remove(entity);
     }
     this.beamEntities = [];
+  }
+
+  /** Re-render with updated category visibility */
+  setVisibleCategories(categories: Set<NewsCategory>, articles?: NewsArticle[]) {
+    this.visibleCategories = categories;
+    if (articles) {
+      this.render(articles);
+    }
   }
 
   enableClickHandler() {
@@ -317,10 +333,11 @@ export class NewsRenderer {
   }
 
   setVisible(visible: boolean) {
+    this.isVisible = visible;
     if (this.heatPoints) this.heatPoints.show = visible;
     if (this.pinPoints) this.pinPoints.show = visible;
     if (this.pinLabels) this.pinLabels.show = visible;
-    for (const entity of this.beamEntities) {
+    for (const { entity } of this.beamEntities) {
       entity.show = visible;
     }
   }

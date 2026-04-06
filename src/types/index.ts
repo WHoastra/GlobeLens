@@ -1,4 +1,14 @@
 /* ── News ──────────────────────────────────────────── */
+export type NewsCategory = "conflict" | "finance" | "tech" | "politics" | "world";
+
+export const NEWS_CATEGORIES: { key: NewsCategory; label: string; color: string }[] = [
+  { key: "conflict", label: "War", color: "#FF3333" },
+  { key: "finance", label: "Finance", color: "#33CC33" },
+  { key: "tech", label: "Tech", color: "#4A90D9" },
+  { key: "politics", label: "Politics", color: "#FFD700" },
+  { key: "world", label: "World", color: "#FFFFFF" },
+];
+
 export interface NewsArticle {
   id: string;
   title: string;
@@ -9,7 +19,8 @@ export interface NewsArticle {
   publishDate: string;
   latitude: number;
   longitude: number;
-  category?: string;
+  category: NewsCategory;
+  location?: string;
 }
 
 /* ── Weather ───────────────────────────────────────── */
