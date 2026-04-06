@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Menu, X } from "lucide-react";
+import { X, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
@@ -28,7 +28,6 @@ const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/live_stream?channel=UCLA_
 
 export default function Home() {
   const { isMobile } = useIsMobile();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | null>(null);
 
   const [layers, setLayers] = useState<LayerState>({
@@ -234,16 +233,9 @@ export default function Home() {
         <p className="text-[10px] text-white/40 tracking-widest uppercase">
           Real-time world intelligence
         </p>
-        <button
-          onClick={() => setMenuOpen((p) => !p)}
-          className="mt-2 w-11 h-11 flex items-center justify-center rounded-lg bg-black/30 border border-white/10 text-white/60 md:hidden"
-        >
-          {menuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        <div className={`mt-3 flex-col gap-1.5 ${menuOpen ? "flex" : "hidden"} md:flex`}>
+        <div className="mt-3 hidden md:flex flex-col gap-1.5">
           <Link
             href="/moon"
-            onClick={() => setMenuOpen(false)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70 min-h-[44px]"
           >
             View Moon
@@ -253,8 +245,6 @@ export default function Home() {
               setShowISS((p) => !p);
               if (showISS) { setTrackISS(false); setShowISSOrbit(false); }
               else { setShowISSOrbit(true); }
-              setMenuOpen(false);
-              if (!showISS && isMobile) setBottomSheet("iss");
             }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border min-h-[44px] ${
               showISS
@@ -269,8 +259,6 @@ export default function Home() {
               setShowArtemis((p) => !p);
               if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
               else { setArtemisView("lunar-transit"); }
-              setMenuOpen(false);
-              if (!showArtemis && isMobile) setBottomSheet("artemis");
             }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border min-h-[44px] ${
               showArtemis
@@ -399,27 +387,27 @@ export default function Home() {
       {/* News article panel (desktop only) */}
       {!isMobile && selectedArticle && (
         <div className="absolute bottom-4 left-80 z-10 w-80 rounded-xl border border-red-400/20 bg-black/70 backdrop-blur-xl text-white shadow-2xl p-4">
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <h3 className="text-sm font-semibold leading-snug">{selectedArticle.title}</h3>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            {selectedArticle.category && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                <span className="text-[10px] font-medium text-red-300 uppercase tracking-wide">{selectedArticle.category}</span>
+              </div>
+            )}
             <button
               onClick={() => setSelectedArticle(null)}
-              className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0"
+              className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0 ml-auto"
             >
-              <span className="text-white/50 text-xs">X</span>
+              <X size={14} className="text-white/50" />
             </button>
           </div>
+          <h3 className="text-sm font-semibold leading-snug mb-2">{selectedArticle.title}</h3>
           <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
             <span>{selectedArticle.source}</span>
             {selectedArticle.publishDate && (
               <>
                 <span>·</span>
                 <span>{selectedArticle.publishDate}</span>
-              </>
-            )}
-            {selectedArticle.category && (
-              <>
-                <span>·</span>
-                <span>{selectedArticle.category}</span>
               </>
             )}
           </div>
@@ -435,7 +423,7 @@ export default function Home() {
             href={selectedArticle.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            className="flex items-center justify-center w-full py-2 rounded-lg bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-medium hover:bg-blue-500/25 transition-colors"
           >
             Read Full Article →
           </a>
@@ -575,7 +563,7 @@ export default function Home() {
       )}
 
       {/* Navigation buttons — always visible */}
-      <div className="absolute bottom-14 md:bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <div className="absolute bottom-16 md:bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         <button
           onClick={() => flyToEarthRef.current?.()}
           className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-xs md:text-sm font-medium backdrop-blur-md hover:bg-blue-500/30 transition-all shadow-lg min-h-[44px]"
@@ -592,8 +580,43 @@ export default function Home() {
         </button>
       </div>
 
+      {/* Mobile unified bottom bar */}
+      <div className="absolute z-10 bottom-0 inset-x-0 flex md:hidden gap-1 px-2 py-1.5 bg-black/80 backdrop-blur-md border-t border-white/10 overflow-x-auto">
+        {([
+          { key: "news" as const, label: "News", icon: Newspaper, active: layers.news, onClick: () => handleToggle("news" as LayerType) },
+          { key: "weather" as const, label: "Weather", icon: Cloud, active: layers.weather, onClick: () => handleToggle("weather" as LayerType) },
+          { key: "webcams" as const, label: "Webcams", icon: Camera, active: layers.webcams, onClick: () => handleToggle("webcams" as LayerType) },
+          { key: "traffic" as const, label: "Traffic", icon: Car, active: layers.traffic, onClick: () => handleToggle("traffic" as LayerType) },
+          { key: "satellites" as const, label: "Sats", icon: Satellite, active: layers.satellites, onClick: () => handleToggle("satellites" as LayerType) },
+          { key: "iss" as const, label: "ISS", icon: Radio, active: showISS, onClick: () => {
+            setShowISS((p) => !p);
+            if (showISS) { setTrackISS(false); setShowISSOrbit(false); }
+            else { setShowISSOrbit(true); if (isMobile) setBottomSheet("iss"); }
+          }},
+          { key: "artemis" as const, label: "Artemis", icon: Rocket, active: showArtemis, onClick: () => {
+            setShowArtemis((p) => !p);
+            if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
+            else { setArtemisView("lunar-transit"); if (isMobile) setBottomSheet("artemis"); }
+          }},
+          { key: "moon" as const, label: "Moon", icon: Moon, active: false, onClick: () => { window.location.href = "/moon"; } },
+        ]).map(({ key, label, icon: Icon, active, onClick }) => (
+          <button
+            key={key}
+            onClick={onClick}
+            className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg shrink-0 min-w-[52px] min-h-[48px] transition-all border ${
+              active
+                ? "bg-white/15 border-white/30 text-white"
+                : "bg-transparent border-transparent text-white/40"
+            }`}
+          >
+            <Icon size={18} />
+            <span className="text-[9px] leading-tight">{label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Attribution */}
-      <div className="absolute bottom-12 md:bottom-2 right-2 z-10">
+      <div className="absolute bottom-14 md:bottom-2 right-2 z-10">
         <p className="text-[8px] md:text-[10px] text-white/30 tracking-wide">
           Created By — Whoastra Labs
         </p>
@@ -603,9 +626,28 @@ export default function Home() {
       {isMobile && bottomSheet && (
         <div className="fixed inset-0 z-30 md:hidden">
           <div className="absolute inset-0 bottom-sheet-backdrop bg-black/40" onClick={() => setBottomSheet(null)} />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[60vh] overflow-y-auto rounded-t-2xl bg-black/80 backdrop-blur-xl border-t border-white/10 bottom-sheet-animate">
+          <div
+            className="absolute bottom-0 left-0 right-0 max-h-[60vh] overflow-y-auto rounded-t-2xl bg-black/80 backdrop-blur-xl border-t border-white/10 bottom-sheet-animate"
+            onTouchStart={(e) => {
+              const el = e.currentTarget;
+              const startY = e.touches[0].clientY;
+              const onMove = (ev: TouchEvent) => {
+                const dy = ev.touches[0].clientY - startY;
+                if (dy > 0) el.style.transform = `translateY(${dy}px)`;
+              };
+              const onEnd = (ev: TouchEvent) => {
+                const dy = ev.changedTouches[0].clientY - startY;
+                el.removeEventListener("touchmove", onMove);
+                el.removeEventListener("touchend", onEnd);
+                if (dy > 80) { setBottomSheet(null); }
+                else { el.style.transform = ""; }
+              };
+              el.addEventListener("touchmove", onMove, { passive: true });
+              el.addEventListener("touchend", onEnd);
+            }}
+          >
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
+              <div className="w-10 h-1 rounded-full bg-white/30" />
             </div>
             <button
               onClick={() => setBottomSheet(null)}
@@ -623,12 +665,36 @@ export default function Home() {
               )}
               {bottomSheet === "news" && selectedArticle && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-white leading-tight">{selectedArticle.title}</h3>
-                  <p className="text-xs text-white/50">{selectedArticle.source} • {selectedArticle.category}</p>
-                  {selectedArticle.image && (
-                    <img src={selectedArticle.image} alt="" className="w-full h-40 object-cover rounded-lg" />
+                  {selectedArticle.category && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                      <span className="text-xs font-medium text-red-300 uppercase tracking-wide">{selectedArticle.category}</span>
+                    </div>
                   )}
-                  <a href={selectedArticle.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-400 hover:underline">
+                  <h3 className="text-base font-semibold text-white leading-snug">{selectedArticle.title}</h3>
+                  <div className="flex items-center gap-2 text-xs text-white/40">
+                    <span>{selectedArticle.source}</span>
+                    {selectedArticle.publishDate && (
+                      <>
+                        <span>·</span>
+                        <span>{selectedArticle.publishDate}</span>
+                      </>
+                    )}
+                  </div>
+                  {selectedArticle.image && (
+                    <img
+                      src={selectedArticle.image}
+                      alt=""
+                      className="w-full max-h-48 object-cover rounded-lg"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+                  <a
+                    href={selectedArticle.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-full min-h-[48px] px-4 py-3 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-300 text-sm font-semibold hover:bg-blue-500/30 transition-colors"
+                  >
                     Read Full Article →
                   </a>
                 </div>

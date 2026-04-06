@@ -71,7 +71,7 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
 
 export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle }: LayerToggleProps) {
   return (
-    <div className="absolute z-10 bottom-0 inset-x-0 flex gap-2 px-3 py-2 bg-black/70 backdrop-blur-md border-t border-white/10 overflow-x-auto md:top-4 md:right-4 md:bottom-auto md:inset-x-auto md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
+    <div className="absolute z-10 hidden md:flex md:top-4 md:right-4 md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
         <div key={key}>
           <button
