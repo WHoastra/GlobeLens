@@ -65,6 +65,11 @@ function intensityColor(count: number, maxCount: number): Color {
   return Color.fromCssColorString("#FF2020").withAlpha(1.0);
 }
 
+interface NewsRendererOptions {
+  maxClusters?: number;
+  topBeamCount?: number;
+}
+
 export class NewsRenderer {
   private viewer: Viewer;
   private heatPoints: PointPrimitiveCollection | null = null;
@@ -74,9 +79,13 @@ export class NewsRenderer {
   private clusters: NewsCluster[] = [];
   private handler: ScreenSpaceEventHandler | null = null;
   private onArticleClick: ((article: NewsArticle, lat: number, lon: number) => void) | null = null;
+  private maxClusters: number | undefined;
+  private topBeamCountLimit: number;
 
-  constructor(viewer: Viewer) {
+  constructor(viewer: Viewer, options?: NewsRendererOptions) {
     this.viewer = viewer;
+    this.maxClusters = options?.maxClusters;
+    this.topBeamCountLimit = options?.topBeamCount ?? TOP_BEAM_COUNT;
   }
 
   init() {
@@ -110,12 +119,15 @@ export class NewsRenderer {
     this.clearBeams();
 
     this.clusters = clusterArticles(articles);
+    if (this.maxClusters) {
+      this.clusters = this.clusters.slice(0, this.maxClusters);
+    }
     const maxCount = this.clusters[0]?.count ?? 1;
 
     for (let i = 0; i < this.clusters.length; i++) {
       const cluster = this.clusters[i];
       const color = intensityColor(cluster.count, maxCount);
-      const isTopStory = i < TOP_BEAM_COUNT;
+      const isTopStory = i < this.topBeamCountLimit;
 
       if (isTopStory) {
         // ── NEWS BEAM for top 10 stories ────────────────────

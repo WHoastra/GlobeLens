@@ -3,10 +3,12 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Menu, X } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 
@@ -25,6 +27,10 @@ const ISS_LIVE_ALT_URL = "https://video.ibm.com/embed/6540154";
 const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/live_stream?channel=UCLA_DiR1FfKNvjuUpBHmylQ&autoplay=1";
 
 export default function Home() {
+  const { isMobile } = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | null>(null);
+
   const [layers, setLayers] = useState<LayerState>({
     news: true,
     weather: false,
@@ -95,7 +101,8 @@ export default function Home() {
 
   const handleGlobeClick = useCallback((event: GlobeClickEvent) => {
     setSelectedLocation({ latitude: event.latitude, longitude: event.longitude });
-  }, []);
+    if (isMobile) setBottomSheet("info");
+  }, [isMobile]);
 
   const handleISSInfo = useCallback((info: ISSInfo | null) => {
     setISSInfo(info);
@@ -176,7 +183,8 @@ export default function Home() {
     setSelectedArticle(article);
     setLiveFeed(null);
     setSelectedWebcam(null);
-  }, []);
+    if (isMobile) setBottomSheet("news");
+  }, [isMobile]);
 
   const hasActiveData = layers.weather;
 
@@ -186,6 +194,7 @@ export default function Home() {
       <GlobeViewer
         onGlobeClick={handleGlobeClick}
         onStopTracking={handleStopTracking}
+        isMobile={isMobile}
         activeWeatherLayers={layers.weather ? activeWeatherLayers : []}
         showTraffic={layers.traffic}
         showSatellites={layers.satellites}
@@ -196,14 +205,14 @@ export default function Home() {
         newsArticles={newsArticles}
         onNewsClick={(article) => handleNewsClick(article)}
         showWebcams={layers.webcams}
-        onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setLiveFeed(null); setSelectedArticle(null); }}
+        onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setLiveFeed(null); setSelectedArticle(null); if (isMobile) setBottomSheet("webcam"); }}
         artemisView={showArtemis ? artemisView : "none"}
         showArtemisActive={showArtemis}
         onCameraDistanceChange={setCameraDistanceKm}
         onFlyToEarth={flyToEarthRef}
         onFlyToMoon={flyToMoonRef}
-        onISSEntityClick={() => { setLiveFeed({ type: "iss", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); }}
-        onArtemisEntityClick={() => { setLiveFeed({ type: "artemis", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); }}
+        onISSEntityClick={() => { setLiveFeed({ type: "iss", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); if (isMobile) setBottomSheet("livefeed"); }}
+        onArtemisEntityClick={() => { setLiveFeed({ type: "artemis", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); if (isMobile) setBottomSheet("livefeed"); }}
         onISSInfo={showISS ? handleISSInfo : undefined}
         onArtemisInfo={showArtemis ? handleArtemisInfo : undefined}
       />
@@ -225,10 +234,17 @@ export default function Home() {
         <p className="text-[10px] text-white/40 tracking-widest uppercase">
           Real-time world intelligence
         </p>
-        <div className="mt-3 flex flex-col gap-1.5">
+        <button
+          onClick={() => setMenuOpen((p) => !p)}
+          className="mt-2 w-11 h-11 flex items-center justify-center rounded-lg bg-black/30 border border-white/10 text-white/60 md:hidden"
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        <div className={`mt-3 flex-col gap-1.5 ${menuOpen ? "flex" : "hidden"} md:flex`}>
           <Link
             href="/moon"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70"
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70 min-h-[44px]"
           >
             View Moon
           </Link>
@@ -237,8 +253,10 @@ export default function Home() {
               setShowISS((p) => !p);
               if (showISS) { setTrackISS(false); setShowISSOrbit(false); }
               else { setShowISSOrbit(true); }
+              setMenuOpen(false);
+              if (!showISS && isMobile) setBottomSheet("iss");
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border min-h-[44px] ${
               showISS
                 ? "bg-yellow-400/20 border-yellow-400/40 text-yellow-300 shadow-lg"
                 : "bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70"
@@ -251,8 +269,10 @@ export default function Home() {
               setShowArtemis((p) => !p);
               if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
               else { setArtemisView("lunar-transit"); }
+              setMenuOpen(false);
+              if (!showArtemis && isMobile) setBottomSheet("artemis");
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border min-h-[44px] ${
               showArtemis
                 ? "bg-orange-400/20 border-orange-400/40 text-orange-300 shadow-lg"
                 : "bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70"
@@ -263,9 +283,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Space tracking panels — bottom-left, only when enabled */}
+      {/* Space tracking panels — bottom-left on desktop, bottom sheet on mobile */}
       {(showArtemis || showISS) && (
-        <div className="absolute bottom-4 left-4 z-10 w-72 flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
+        <div className="hidden md:flex absolute bottom-4 left-4 z-10 w-72 flex-col gap-3 max-h-[80vh] overflow-y-auto">
           {/* Artemis II Panel */}
           {showArtemis && (
             <div className="rounded-xl border border-orange-400/20 bg-black/60 backdrop-blur-xl text-white shadow-2xl">
@@ -355,8 +375,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Info panel — shown when a location is clicked */}
-      {selectedLocation && (
+      {/* Info panel — shown when a location is clicked (desktop only) */}
+      {!isMobile && selectedLocation && (
         <InfoPanel
           latitude={selectedLocation.latitude}
           longitude={selectedLocation.longitude}
@@ -376,8 +396,8 @@ export default function Home() {
         </InfoPanel>
       )}
 
-      {/* News article panel — shown when a news pin is clicked */}
-      {selectedArticle && (
+      {/* News article panel (desktop only) */}
+      {!isMobile && selectedArticle && (
         <div className="absolute bottom-4 left-80 z-10 w-80 rounded-xl border border-red-400/20 bg-black/70 backdrop-blur-xl text-white shadow-2xl p-4">
           <div className="flex items-start justify-between gap-2 mb-3">
             <h3 className="text-sm font-semibold leading-snug">{selectedArticle.title}</h3>
@@ -422,8 +442,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Webcam popup — shown when a webcam pin is clicked */}
-      {selectedWebcam && (
+      {/* Webcam popup (desktop only) */}
+      {!isMobile && selectedWebcam && (
         <div className="absolute bottom-4 left-80 z-20 w-96 rounded-xl border border-cyan-400/20 bg-black/80 backdrop-blur-xl text-white shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between p-3 border-b border-white/10">
             <div className="flex items-center gap-2 min-w-0">
@@ -474,8 +494,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Live feed popup — ISS or Artemis stream */}
-      {liveFeed && (
+      {/* Live feed popup (desktop only) */}
+      {!isMobile && liveFeed && (
         <div className="absolute bottom-4 left-80 z-20 w-96 rounded-xl border border-yellow-400/20 bg-black/80 backdrop-blur-xl text-white shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-white/10">
@@ -555,17 +575,17 @@ export default function Home() {
       )}
 
       {/* Navigation buttons — always visible */}
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <div className="absolute bottom-14 md:bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         <button
           onClick={() => flyToEarthRef.current?.()}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-sm font-medium backdrop-blur-md hover:bg-blue-500/30 transition-all shadow-lg"
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-xs md:text-sm font-medium backdrop-blur-md hover:bg-blue-500/30 transition-all shadow-lg min-h-[44px]"
         >
           <span className="w-2 h-2 rounded-full bg-blue-400" />
           Back to Earth
         </button>
         <button
           onClick={() => flyToMoonRef.current?.()}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-500/20 border border-gray-400/40 text-gray-300 text-sm font-medium backdrop-blur-md hover:bg-gray-500/30 transition-all shadow-lg"
+          className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-gray-500/20 border border-gray-400/40 text-gray-300 text-xs md:text-sm font-medium backdrop-blur-md hover:bg-gray-500/30 transition-all shadow-lg min-h-[44px]"
         >
           <span className="w-2 h-2 rounded-full bg-gray-400" />
           Go to Moon
@@ -573,11 +593,100 @@ export default function Home() {
       </div>
 
       {/* Attribution */}
-      <div className="absolute bottom-2 right-2 z-10">
-        <p className="text-[10px] text-white/30 tracking-wide">
+      <div className="absolute bottom-12 md:bottom-2 right-2 z-10">
+        <p className="text-[8px] md:text-[10px] text-white/30 tracking-wide">
           Created By — Whoastra Labs
         </p>
       </div>
+
+      {/* Mobile bottom sheet */}
+      {isMobile && bottomSheet && (
+        <div className="fixed inset-0 z-30 md:hidden">
+          <div className="absolute inset-0 bottom-sheet-backdrop bg-black/40" onClick={() => setBottomSheet(null)} />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[60vh] overflow-y-auto rounded-t-2xl bg-black/80 backdrop-blur-xl border-t border-white/10 bottom-sheet-animate">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+            <button
+              onClick={() => setBottomSheet(null)}
+              className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full bg-white/10"
+            >
+              <X size={20} className="text-white/60" />
+            </button>
+            <div className="px-4 pb-6">
+              {bottomSheet === "info" && selectedLocation && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-white">Location Details</h3>
+                  <p className="text-xs text-white/60">{selectedLocation.latitude.toFixed(4)}°N, {selectedLocation.longitude.toFixed(4)}°W</p>
+                  {layers.weather && weather && <WeatherPanel weather={weather} loading={weatherLoading} error={weatherError} />}
+                </div>
+              )}
+              {bottomSheet === "news" && selectedArticle && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-white leading-tight">{selectedArticle.title}</h3>
+                  <p className="text-xs text-white/50">{selectedArticle.source} • {selectedArticle.category}</p>
+                  {selectedArticle.image && (
+                    <img src={selectedArticle.image} alt="" className="w-full h-40 object-cover rounded-lg" />
+                  )}
+                  <a href={selectedArticle.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-400 hover:underline">
+                    Read Full Article →
+                  </a>
+                </div>
+              )}
+              {bottomSheet === "webcam" && selectedWebcam && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-white">{selectedWebcam.title}</h3>
+                  {selectedWebcam.playerUrl ? (
+                    <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                      <iframe src={selectedWebcam.playerUrl} className="absolute inset-0 w-full h-full rounded-lg" allowFullScreen />
+                    </div>
+                  ) : selectedWebcam.previewUrl ? (
+                    <img src={selectedWebcam.previewUrl} alt="" className="w-full rounded-lg" />
+                  ) : null}
+                  <p className="text-xs text-white/50">{selectedWebcam.city}{selectedWebcam.country ? `, ${selectedWebcam.country}` : ""}</p>
+                </div>
+              )}
+              {bottomSheet === "livefeed" && liveFeed && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-white">
+                    {liveFeed.type === "iss" ? "ISS Live Feed" : "Artemis II Live"}
+                  </h3>
+                  <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                    <iframe
+                      src={liveFeed.type === "iss"
+                        ? (liveFeed.issView === "earth" ? ISS_LIVE_URL : ISS_LIVE_ALT_URL)
+                        : ARTEMIS_LIVE_YT}
+                      className="absolute inset-0 w-full h-full rounded-lg"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              )}
+              {bottomSheet === "artemis" && showArtemis && (
+                <ArtemisPanel
+                  info={artemisInfo}
+                  isTracking={trackArtemis}
+                  onTrackToggle={() => {
+                    setTrackArtemis((prev) => !prev);
+                    if (!trackArtemis) setTrackISS(false);
+                  }}
+                />
+              )}
+              {bottomSheet === "iss" && showISS && (
+                <ISSPanel
+                  info={issInfo}
+                  loading={issLoading}
+                  isTracking={trackISS}
+                  onTrackToggle={() => {
+                    setTrackISS((prev) => !prev);
+                    if (!trackISS) setTrackArtemis(false);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

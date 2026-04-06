@@ -1,6 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0a0a1a",
+};
 
 export const metadata: Metadata = {
   title: "GlobeLens — Real-Time World Intelligence on a 3D Globe",
@@ -22,6 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <Script src="/cesium/Cesium.js" strategy="beforeInteractive" />
       </head>
       <body className="antialiased bg-[#0a0a1a] text-white min-h-screen overflow-hidden">

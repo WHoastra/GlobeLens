@@ -50,6 +50,7 @@ interface GlobeViewerProps {
   trackArtemis?: boolean;
   showISSOrbit?: boolean;
   artemisView?: ArtemisViewMode;
+  isMobile?: boolean;
   showNews?: boolean;
   newsArticles?: NewsArticle[];
   onNewsClick?: (article: NewsArticle, lat: number, lon: number) => void;
@@ -69,7 +70,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -138,6 +139,11 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     });
     viewerRef.current = viewer;
 
+    // Mobile performance tuning
+    if (isMobile) {
+      viewer.scene.globe.maximumScreenSpaceError = 4;
+    }
+
     // ── Clock: real-time sun position ──────────────────────────
     viewer.clock.currentTime = JulianDate.now();
     viewer.clock.clockRange = ClockRange.UNBOUNDED;
@@ -191,7 +197,10 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     }
 
     // ── News heatmap + pins ──────────────────────────────────────
-    const newsRenderer = new NewsRenderer(viewer);
+    const newsRenderer = new NewsRenderer(viewer, {
+      maxClusters: isMobile ? 50 : undefined,
+      topBeamCount: isMobile ? 5 : 10,
+    });
     newsRenderer.init();
     newsRenderer.setOnArticleClick((article, lat, lon) => {
       onNewsClickRef.current?.(article, lat, lon);
@@ -216,7 +225,9 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     webcamRendererRef.current = webcamRenderer;
 
     // ── Satellite layer ─────────────────────────────────────────
-    const satManager = new SatelliteManager(viewer);
+    const satManager = new SatelliteManager(viewer, {
+      maxVisibleSats: isMobile ? 100 : 800,
+    });
     satManagerRef.current = satManager;
     satManager.init(); // async — runs in background
 

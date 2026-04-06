@@ -49,7 +49,11 @@ const TYPE_COLORS: Record<SatelliteType, Color> = {
   weather: Color.fromCssColorString("#ffd43b"),
 };
 
-const MAX_VISIBLE_SATS = 800;
+const DEFAULT_MAX_VISIBLE_SATS = 800;
+
+interface SatelliteManagerOptions {
+  maxVisibleSats?: number;
+}
 
 /** Draw a spaceship icon on a canvas for use as a Cesium billboard */
 function createSpaceshipIcon(
@@ -159,9 +163,11 @@ export class SatelliteManager {
   private onSatClick: ((pos: SatellitePosition) => void) | null = null;
   private isTracking = false;
   private isTrackingArtemis = false;
+  private maxVisibleSats: number;
 
-  constructor(viewer: Viewer) {
+  constructor(viewer: Viewer, options?: SatelliteManagerOptions) {
     this.viewer = viewer;
+    this.maxVisibleSats = options?.maxVisibleSats ?? DEFAULT_MAX_VISIBLE_SATS;
   }
 
   async init() {
@@ -378,7 +384,7 @@ export class SatelliteManager {
         scored.push({ sat, dist: dlat });
       }
       scored.sort((a, b) => a.dist - b.dist);
-      const visible = scored.slice(0, MAX_VISIBLE_SATS);
+      const visible = scored.slice(0, this.maxVisibleSats);
 
       for (const { sat } of visible) {
         const pos = getSatellitePosition(sat, now);

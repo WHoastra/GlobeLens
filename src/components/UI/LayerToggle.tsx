@@ -71,13 +71,13 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
 
 export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle }: LayerToggleProps) {
   return (
-    <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+    <div className="absolute z-10 bottom-0 inset-x-0 flex gap-2 px-3 py-2 bg-black/70 backdrop-blur-md border-t border-white/10 overflow-x-auto md:top-4 md:right-4 md:bottom-auto md:inset-x-auto md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
         <div key={key}>
           <button
             onClick={() => onToggle(key)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-              transition-all duration-200 backdrop-blur-md border w-full
+              transition-all duration-200 backdrop-blur-md border w-full shrink-0 min-h-[44px]
               ${
                 layers[key]
                   ? "bg-white/20 border-white/40 text-white shadow-lg shadow-white/10"
@@ -86,12 +86,12 @@ export default function LayerToggle({ layers, onToggle, activeWeatherLayers = []
             title={`Toggle ${label} layer`}
           >
             <Icon size={16} />
-            <span className="hidden sm:inline">{label}</span>
+            <span className="hidden md:inline">{label}</span>
           </button>
 
           {/* Weather sub-layer toggles */}
           {key === "weather" && layers.weather && (
-            <div className="flex gap-1 mt-1 ml-1 flex-wrap">
+            <div className="hidden md:flex gap-1 mt-1 ml-1 flex-wrap">
               {WEATHER_TILE_OPTIONS.map((opt) => {
                 const isActive = activeWeatherLayers.includes(opt.key);
                 return (
@@ -114,7 +114,7 @@ export default function LayerToggle({ layers, onToggle, activeWeatherLayers = []
 
           {/* Color legends for active weather layers */}
           {key === "weather" && layers.weather && activeWeatherLayers.length > 0 && (
-            <div className="mt-2 ml-1 flex flex-col gap-1.5">
+            <div className="hidden md:flex mt-2 ml-1 flex-col gap-1.5">
               {activeWeatherLayers.map((layerKey) => {
                 const legend = LEGENDS[layerKey];
                 if (!legend) return null;
