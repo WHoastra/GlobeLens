@@ -22,10 +22,10 @@ interface GeocodedArticle {
 
 // ── Category Queries ──────────────────────────────────────────
 const CATEGORY_QUERIES = [
-  { category: "conflict", query: "(war OR military OR conflict OR attack OR missile OR troops OR airstrike OR bombing) sourcelang:English" },
-  { category: "finance", query: "(economy OR markets OR stocks OR inflation OR trade OR GDP) sourcelang:English" },
-  { category: "tech", query: "(AI OR technology OR startup OR cyber OR software OR chip OR robotics OR SpaceX) sourcelang:English" },
-  { category: "politics", query: "(election OR congress OR president OR legislation OR government OR policy OR sanctions OR parliament) sourcelang:English" },
+  { category: "conflict", query: "war military conflict attack sourcelang:English" },
+  { category: "finance", query: "economy markets stocks inflation sourcelang:English" },
+  { category: "tech", query: "AI technology startup cyber software sourcelang:English" },
+  { category: "politics", query: "election congress president government sourcelang:English" },
   { category: "world", query: "world sourcelang:English" },
 ];
 
@@ -125,7 +125,7 @@ async function geocodeWithClaude(
   }));
 
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20241022",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 16000,
     system:
       "You are a precise geocoding assistant. Given a list of news articles with their titles, sources, and source countries, determine the most accurate latitude and longitude for where each story takes place. Use context from the headline to identify the specific city, region, or landmark — not just the country centroid. If the headline mentions a specific place (e.g. 'Strait of Hormuz', 'Paris', 'Capitol Hill'), use that location. If no specific location can be determined from the headline, use the capital city of the source country as a fallback. Respond ONLY with a valid JSON array, no markdown, no explanation.",
