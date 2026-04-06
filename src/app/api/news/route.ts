@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCountryCoords } from "@/lib/countryCoords";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
@@ -149,7 +149,7 @@ function mergeArticlesWithCoords(
 }
 
 // ── API Route ──────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Check file-based cache first
   const cached = readCache();
   if (cached) {

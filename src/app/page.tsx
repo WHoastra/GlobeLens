@@ -85,7 +85,7 @@ export default function Home() {
 
 
   // Camera distance for navigation buttons
-  const [cameraDistanceKm, setCameraDistanceKm] = useState(0);
+  const [, setCameraDistanceKm] = useState(0);
   const flyToEarthRef = useRef<(() => void) | null>(null);
   const flyToMoonRef = useRef<(() => void) | null>(null);
 

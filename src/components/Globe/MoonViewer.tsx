@@ -42,7 +42,7 @@ interface MoonViewerProps {
   className?: string;
 }
 
-export default function MoonViewer({ artemisDistanceKm, artemisPhase, className }: MoonViewerProps) {
+export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const artemisPointsRef = useRef<BillboardCollection | null>(null);

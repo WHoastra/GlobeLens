@@ -1,6 +1,6 @@
 "use client";
 
-import { Cloud, Droplets, Wind, Thermometer, Eye } from "lucide-react";
+import { Cloud, Droplets, Wind, Thermometer } from "lucide-react";
 import type { WeatherData } from "@/types";
 
 interface WeatherPanelProps {

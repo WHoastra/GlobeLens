@@ -23,7 +23,6 @@ import {
   getSatellitePosition,
   getOrbitPath,
   isISS,
-  ISS_NORAD_ID,
   fetchAllSatellites,
   SatelliteType,
 } from "./satellites";
@@ -243,7 +242,6 @@ export class SatelliteManager {
     const cameraPos = viewer.camera.positionCartographic;
     const cameraHeight = cameraPos.height;
     const cameraLat = CesiumMath.toDegrees(cameraPos.latitude);
-    const cameraLon = CesiumMath.toDegrees(cameraPos.longitude);
 
     // Fade factor based on altitude
     const fadeMin = 500_000;
@@ -374,7 +372,7 @@ export class SatelliteManager {
       const scored: { sat: SatelliteData; dist: number }[] = [];
       for (const sat of this.satellites) {
         if (isISS(sat)) continue; // already rendered
-        const dlat = Math.abs(cameraLat - (sat.satrec as any).inclo * 57.3);
+        const dlat = Math.abs(cameraLat - (sat.satrec as unknown as Record<string, number>).inclo * 57.3);
         scored.push({ sat, dist: dlat });
       }
       scored.sort((a, b) => a.dist - b.dist);
