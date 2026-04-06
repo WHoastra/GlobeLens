@@ -23,7 +23,6 @@ if (typeof window !== "undefined") {
 }
 
 const MOON_RADIUS = 1_737_400; // meters
-const MOON_ELLIPSOID = new Ellipsoid(MOON_RADIUS, MOON_RADIUS, MOON_RADIUS);
 
 const LUNAR_FEATURES = [
   { name: "Apollo 11 Landing Site", lat: 0.6744, lon: 23.473 },
@@ -69,6 +68,9 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
     if (ionToken) {
       Ion.defaultAccessToken = ionToken;
     }
+
+    // Create ellipsoid here (not at module scope) to ensure Cesium is loaded
+    const MOON_ELLIPSOID = new Ellipsoid(MOON_RADIUS, MOON_RADIUS, MOON_RADIUS);
 
     // Create viewer with Moon-sized ellipsoid
     const viewer = new Viewer(containerRef.current, {
