@@ -85,20 +85,34 @@ export async function fetchAllSatellites(): Promise<SatelliteData[]> {
   const results: SatelliteData[] = [];
   const cacheEntries: { type: SatelliteType; tle: string }[] = [];
 
-  await Promise.all(
-    TLE_SOURCES.map(async ({ type, url }) => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const text = await res.text();
-        const sats = parseTLE(text, type);
+  try {
+    // Fetch TLE data through server-side proxy to avoid CelesTrak CORS/blocking issues
+    const res = await fetch("/api/satellites");
+    if (res.ok) {
+      const entries: { type: SatelliteType; tle: string }[] = await res.json();
+      for (const { type, tle } of entries) {
+        const sats = parseTLE(tle, type);
         results.push(...sats);
-        cacheEntries.push({ type, tle: text });
-      } catch {
-        // skip failed fetches
+        cacheEntries.push({ type, tle });
       }
-    })
-  );
+    }
+  } catch {
+    // fallback: try direct fetch
+    await Promise.all(
+      TLE_SOURCES.map(async ({ type, url }) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const text = await res.text();
+          const sats = parseTLE(text, type);
+          results.push(...sats);
+          cacheEntries.push({ type, tle: text });
+        } catch {
+          // skip failed fetches
+        }
+      })
+    );
+  }
 
   // Save to cache
   if (typeof window !== "undefined" && cacheEntries.length > 0) {
