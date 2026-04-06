@@ -484,7 +484,7 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     if (showArtemisActive) {
       controller.maximumZoomDistance = 1_500_000_000;
     } else {
-      controller.maximumZoomDistance = 50_000_000;
+      controller.maximumZoomDistance = 100_000_000;
     }
 
     // Report camera distance every time camera moves

@@ -7,12 +7,14 @@ const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle/";
 
 // NORAD IDs for key satellites to search for
 const TLE_SEARCHES = [
-  { type: "station", search: "ISS", pageSize: 5 },
-  { type: "station", search: "TIANGONG", pageSize: 3 },
-  { type: "starlink", search: "STARLINK", pageSize: 50 },
-  { type: "gps", search: "NAVSTAR", pageSize: 30 },
-  { type: "weather", search: "NOAA", pageSize: 10 },
-  { type: "weather", search: "METEOR", pageSize: 10 },
+  { type: "station", search: "ISS", pageSize: 10 },
+  { type: "station", search: "TIANGONG", pageSize: 5 },
+  { type: "station", search: "COSMOS", pageSize: 20 },
+  { type: "starlink", search: "STARLINK", pageSize: 100 },
+  { type: "gps", search: "NAVSTAR", pageSize: 50 },
+  { type: "weather", search: "NOAA", pageSize: 20 },
+  { type: "weather", search: "METEOR", pageSize: 20 },
+  { type: "weather", search: "GOES", pageSize: 10 },
 ];
 
 // CelesTrak as fallback
