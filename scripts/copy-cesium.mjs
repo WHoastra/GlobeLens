@@ -21,6 +21,13 @@ for (const dir of dirs) {
   }
 }
 
+// Copy the main Cesium.js bundle for external script loading
+const cesiumJs = join(cesiumSource, "Cesium.js");
+if (existsSync(cesiumJs)) {
+  cpSync(cesiumJs, join(dest, "Cesium.js"), { force: true });
+  console.log("  Copied Cesium.js");
+}
+
 console.log("Cesium static assets copied to public/cesium/");
 
 // Download higher-res Moon texture if not already present

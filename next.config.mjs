@@ -1,8 +1,3 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -15,15 +10,15 @@ const nextConfig = {
         https: false,
         zlib: false,
       };
-    }
 
-    // Point cesium JS imports to pre-built CJS bundle to avoid
-    // SWC converting octal escapes into template literals.
-    // Use cesium$ to match only bare "cesium" imports, not subpaths like cesium/Build/...
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "cesium$": path.resolve(__dirname, "node_modules/cesium/index.cjs"),
-    };
+      // Load Cesium from the global script instead of bundling it.
+      // This avoids SWC converting Cesium's octal escapes into
+      // illegal template literal sequences.
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : []),
+        { cesium: "Cesium" },
+      ];
+    }
 
     config.module.unknownContextCritical = false;
 

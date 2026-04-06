@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,6 +21,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <Script src="/cesium/Cesium.js" strategy="beforeInteractive" />
+      </head>
       <body className="antialiased bg-[#0a0a1a] text-white min-h-screen overflow-hidden">
         {children}
       </body>
