@@ -83,7 +83,7 @@ async function geocodeWithClaude(
   }));
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6-20250514",
+    model: "claude-sonnet-4-5-20241022",
     max_tokens: 16000,
     system:
       "You are a precise geocoding assistant. Given a list of news articles with their titles, sources, and source countries, determine the most accurate latitude and longitude for where each story takes place. Use context from the headline to identify the specific city, region, or landmark — not just the country centroid. If the headline mentions a specific place (e.g. 'Strait of Hormuz', 'Paris', 'Capitol Hill'), use that location. If no specific location can be determined from the headline, use the capital city of the source country as a fallback. Respond ONLY with a valid JSON array, no markdown, no explanation.",
