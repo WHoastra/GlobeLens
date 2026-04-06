@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { X, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
+import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
@@ -28,6 +28,7 @@ const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/live_stream?channel=UCLA_
 
 export default function Home() {
   const { isMobile } = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | null>(null);
 
   const [layers, setLayers] = useState<LayerState>({
@@ -226,13 +227,94 @@ export default function Home() {
 
       {/* Logo / Branding */}
       <div className="absolute top-4 left-4 z-10">
-        <h1 className="text-xl font-bold tracking-tight">
-          <span className="text-blue-400">Globe</span>
-          <span className="text-white">Lens</span>
-        </h1>
-        <p className="text-[10px] text-white/40 tracking-widest uppercase">
-          Real-time world intelligence
-        </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">
+              <span className="text-blue-400">Globe</span>
+              <span className="text-white">Lens</span>
+            </h1>
+            <p className="text-[10px] text-white/40 tracking-widest uppercase">
+              Real-time world intelligence
+            </p>
+          </div>
+          <button
+            onClick={() => setMenuOpen((p) => !p)}
+            className="w-11 h-11 flex items-center justify-center rounded-lg bg-black/50 border border-white/10 text-white/60 md:hidden backdrop-blur-md"
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        {/* Mobile hamburger menu — all controls */}
+        {menuOpen && (
+          <div className="mt-2 p-3 rounded-xl bg-black/80 backdrop-blur-xl border border-white/10 flex flex-col gap-1.5 md:hidden max-h-[70vh] overflow-y-auto w-56">
+            <p className="text-[9px] text-white/30 uppercase tracking-wider px-1 mb-1">Layers</p>
+            {([
+              { label: "News", icon: Newspaper, active: layers.news, onClick: () => handleToggle("news" as LayerType) },
+              { label: "Weather", icon: Cloud, active: layers.weather, onClick: () => handleToggle("weather" as LayerType) },
+              { label: "Webcams", icon: Camera, active: layers.webcams, onClick: () => handleToggle("webcams" as LayerType) },
+              { label: "Traffic", icon: Car, active: layers.traffic, onClick: () => handleToggle("traffic" as LayerType) },
+              { label: "Satellites", icon: Satellite, active: layers.satellites, onClick: () => handleToggle("satellites" as LayerType) },
+            ]).map(({ label, icon: Icon, active, onClick }) => (
+              <button
+                key={label}
+                onClick={() => { onClick(); }}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all border min-h-[44px] w-full ${
+                  active
+                    ? "bg-white/15 border-white/30 text-white"
+                    : "bg-black/30 border-white/5 text-white/50"
+                }`}
+              >
+                <Icon size={16} />
+                {label}
+              </button>
+            ))}
+            <div className="border-t border-white/10 my-1" />
+            <p className="text-[9px] text-white/30 uppercase tracking-wider px-1 mb-1">Space Tracking</p>
+            <button
+              onClick={() => {
+                setShowISS((p) => !p);
+                if (showISS) { setTrackISS(false); setShowISSOrbit(false); }
+                else { setShowISSOrbit(true); if (isMobile) setBottomSheet("iss"); }
+                setMenuOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all border min-h-[44px] w-full ${
+                showISS
+                  ? "bg-yellow-400/20 border-yellow-400/40 text-yellow-300"
+                  : "bg-black/30 border-white/5 text-white/50"
+              }`}
+            >
+              <Radio size={16} />
+              ISS Tracker
+            </button>
+            <button
+              onClick={() => {
+                setShowArtemis((p) => !p);
+                if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
+                else { setArtemisView("lunar-transit"); if (isMobile) setBottomSheet("artemis"); }
+                setMenuOpen(false);
+              }}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all border min-h-[44px] w-full ${
+                showArtemis
+                  ? "bg-orange-400/20 border-orange-400/40 text-orange-300"
+                  : "bg-black/30 border-white/5 text-white/50"
+              }`}
+            >
+              <Rocket size={16} />
+              Artemis II
+            </button>
+            <Link
+              href="/moon"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all border min-h-[44px] w-full bg-black/30 border-white/5 text-white/50"
+            >
+              <Moon size={16} />
+              View Moon
+            </Link>
+          </div>
+        )}
+
+        {/* Desktop nav buttons */}
         <div className="mt-3 hidden md:flex flex-col gap-1.5">
           <Link
             href="/moon"
@@ -563,7 +645,7 @@ export default function Home() {
       )}
 
       {/* Navigation buttons — always visible */}
-      <div className="absolute bottom-16 md:bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <div className="absolute bottom-8 md:bottom-16 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         <button
           onClick={() => flyToEarthRef.current?.()}
           className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-xs md:text-sm font-medium backdrop-blur-md hover:bg-blue-500/30 transition-all shadow-lg min-h-[44px]"
@@ -580,43 +662,8 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Mobile unified bottom bar */}
-      <div className="absolute z-10 bottom-0 inset-x-0 flex md:hidden gap-1 px-2 py-1.5 bg-black/80 backdrop-blur-md border-t border-white/10 overflow-x-auto">
-        {([
-          { key: "news" as const, label: "News", icon: Newspaper, active: layers.news, onClick: () => handleToggle("news" as LayerType) },
-          { key: "weather" as const, label: "Weather", icon: Cloud, active: layers.weather, onClick: () => handleToggle("weather" as LayerType) },
-          { key: "webcams" as const, label: "Webcams", icon: Camera, active: layers.webcams, onClick: () => handleToggle("webcams" as LayerType) },
-          { key: "traffic" as const, label: "Traffic", icon: Car, active: layers.traffic, onClick: () => handleToggle("traffic" as LayerType) },
-          { key: "satellites" as const, label: "Sats", icon: Satellite, active: layers.satellites, onClick: () => handleToggle("satellites" as LayerType) },
-          { key: "iss" as const, label: "ISS", icon: Radio, active: showISS, onClick: () => {
-            setShowISS((p) => !p);
-            if (showISS) { setTrackISS(false); setShowISSOrbit(false); }
-            else { setShowISSOrbit(true); if (isMobile) setBottomSheet("iss"); }
-          }},
-          { key: "artemis" as const, label: "Artemis", icon: Rocket, active: showArtemis, onClick: () => {
-            setShowArtemis((p) => !p);
-            if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
-            else { setArtemisView("lunar-transit"); if (isMobile) setBottomSheet("artemis"); }
-          }},
-          { key: "moon" as const, label: "Moon", icon: Moon, active: false, onClick: () => { window.location.href = "/moon"; } },
-        ]).map(({ key, label, icon: Icon, active, onClick }) => (
-          <button
-            key={key}
-            onClick={onClick}
-            className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg shrink-0 min-w-[52px] min-h-[48px] transition-all border ${
-              active
-                ? "bg-white/15 border-white/30 text-white"
-                : "bg-transparent border-transparent text-white/40"
-            }`}
-          >
-            <Icon size={18} />
-            <span className="text-[9px] leading-tight">{label}</span>
-          </button>
-        ))}
-      </div>
-
       {/* Attribution */}
-      <div className="absolute bottom-14 md:bottom-2 right-2 z-10">
+      <div className="absolute bottom-2 right-2 z-10">
         <p className="text-[8px] md:text-[10px] text-white/30 tracking-wide">
           Created By — Whoastra Labs
         </p>
