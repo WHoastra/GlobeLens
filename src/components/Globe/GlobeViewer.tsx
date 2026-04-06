@@ -424,12 +424,12 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     }
   }, [showNews]);
 
-  // Render news articles when data changes
+  // Render news articles when data changes or viewer becomes ready
   useEffect(() => {
     if (newsRendererRef.current && newsArticles && showNews) {
       newsRendererRef.current.render(newsArticles);
     }
-  }, [newsArticles, showNews]);
+  }, [newsArticles, showNews, cesiumReady]);
 
   // Toggle webcam layer visibility + fetch webcams on camera move
   useEffect(() => {
