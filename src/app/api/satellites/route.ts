@@ -2,20 +2,9 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// TLE.info API — free alternative when CelesTrak is down
 const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle/";
-
-// NORAD IDs for key satellites to search for
-const TLE_SEARCHES = [
-  { type: "station", search: "ISS", pageSize: 10 },
-  { type: "station", search: "TIANGONG", pageSize: 5 },
-  { type: "station", search: "COSMOS", pageSize: 20 },
-  { type: "starlink", search: "STARLINK", pageSize: 100 },
-  { type: "gps", search: "NAVSTAR", pageSize: 50 },
-  { type: "weather", search: "NOAA", pageSize: 20 },
-  { type: "weather", search: "METEOR", pageSize: 20 },
-  { type: "weather", search: "GOES", pageSize: 10 },
-];
+const PAGES_TO_FETCH = 5; // 100 per page × 5 = 500 satellites
+const PAGE_SIZE = 100;
 
 // CelesTrak as fallback
 const CELESTRAK_SOURCES = [
@@ -31,37 +20,50 @@ interface TLEMember {
   line2: string;
 }
 
+function classifySatellite(name: string): string {
+  const upper = name.toUpperCase();
+  if (upper.includes("ISS") || upper.includes("ZARYA") || upper.includes("TIANGONG")) return "station";
+  if (upper.includes("STARLINK")) return "starlink";
+  if (upper.includes("NAVSTAR") || upper.includes("GPS")) return "gps";
+  if (upper.includes("NOAA") || upper.includes("GOES") || upper.includes("METEOR") || upper.includes("METEOSAT")) return "weather";
+  return "station"; // default bucket
+}
+
 async function fetchFromTLEInfo(): Promise<{ type: string; tle: string }[]> {
-  const results: { type: string; tle: string }[] = [];
+  const buckets: Record<string, string[]> = {};
 
-  await Promise.all(
-    TLE_SEARCHES.map(async ({ type, search, pageSize }) => {
-      try {
-        const url = `${TLE_API_BASE}?search=${encodeURIComponent(search)}&page_size=${pageSize}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          console.error(`[Satellites] TLE.info ${search} returned ${res.status}`);
-          return;
-        }
-        const data = await res.json();
-        const members: TLEMember[] = data.member || [];
+  // Fetch top satellites by popularity across multiple pages
+  const pagePromises = [];
+  for (let page = 1; page <= PAGES_TO_FETCH; page++) {
+    pagePromises.push(
+      fetch(`${TLE_API_BASE}?page_size=${PAGE_SIZE}&page=${page}&sort=popularity&sort-dir=desc`)
+        .then(async (res) => {
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.member || []) as TLEMember[];
+        })
+        .catch(() => [] as TLEMember[])
+    );
+  }
 
-        // Convert JSON TLE data to standard 3-line TLE format
-        const tleLines = members
-          .map((m: TLEMember) => `${m.name}\n${m.line1}\n${m.line2}`)
-          .join("\n");
+  const pages = await Promise.all(pagePromises);
+  let totalCount = 0;
 
-        if (tleLines) {
-          results.push({ type, tle: tleLines });
-          console.log(`[Satellites] TLE.info loaded ${members.length} ${search} satellites`);
-        }
-      } catch (err) {
-        console.error(`[Satellites] TLE.info ${search} failed:`, err);
-      }
-    })
-  );
+  for (const members of pages) {
+    for (const m of members) {
+      const type = classifySatellite(m.name);
+      if (!buckets[type]) buckets[type] = [];
+      buckets[type].push(`${m.name}\n${m.line1}\n${m.line2}`);
+      totalCount++;
+    }
+  }
 
-  return results;
+  console.log(`[Satellites] TLE.info loaded ${totalCount} satellites across ${Object.keys(buckets).length} types`);
+
+  return Object.entries(buckets).map(([type, lines]) => ({
+    type,
+    tle: lines.join("\n"),
+  }));
 }
 
 async function fetchFromCelesTrak(): Promise<{ type: string; tle: string }[]> {
@@ -76,7 +78,6 @@ async function fetchFromCelesTrak(): Promise<{ type: string; tle: string }[]> {
         if (!res.ok) return;
         const text = await res.text();
         results.push({ type, tle: text });
-        console.log(`[Satellites] CelesTrak loaded ${type}`);
       } catch {
         // skip
       }
@@ -87,7 +88,6 @@ async function fetchFromCelesTrak(): Promise<{ type: string; tle: string }[]> {
 }
 
 export async function GET() {
-  // Try TLE.info first (more reliable), fall back to CelesTrak
   let results = await fetchFromTLEInfo();
 
   if (results.length === 0) {
