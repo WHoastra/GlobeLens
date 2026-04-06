@@ -28,6 +28,12 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# news geocoding cache
+.cache
+
+# cesium static assets (copied by webpack at build time)
+/public/cesium
+
 # vercel
 .vercel
 
