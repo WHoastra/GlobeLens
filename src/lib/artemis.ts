@@ -5,6 +5,7 @@ import {
   Transforms,
   Matrix3,
 } from "cesium";
+import type { ArtemisViewMode } from "@/types";
 
 // ── Mission Constants ──────────────────────────────────────────
 export const ARTEMIS_LAUNCH_UTC = new Date("2026-04-01T22:35:00Z");
@@ -309,4 +310,118 @@ export function getMilestonePositions(date: Date = new Date()): {
       position: trajectoryToECEF(along, perp, moonPos),
     };
   });
+}
+
+// ── View-specific trajectory functions ────────────────────────
+
+/**
+ * Generate an elliptical Earth parking/checkout orbit.
+ * High elliptical orbit: ~185 km perigee, ~74,000 km apogee.
+ * Inclination ~28.5° (KSC latitude).
+ */
+export function getEarthOrbitPoints(
+  date: Date = new Date(),
+  numPoints = 200
+): Cartesian3[] {
+  const EARTH_RADIUS = 6_371_000; // meters
+  const PERIGEE = EARTH_RADIUS + 185_000;   // 185 km altitude
+  const APOGEE  = EARTH_RADIUS + 74_000_000; // 74,000 km altitude (high orbit)
+  const semiMajor = (PERIGEE + APOGEE) / 2;
+  const ecc = (APOGEE - PERIGEE) / (APOGEE + PERIGEE);
+  const inclination = 28.5 * Math.PI / 180;
+
+  // Orient RAAN toward Moon so orbit departure looks continuous with TLI
+  const moonPos = getMoonPositionECEF(date);
+  const moonDir = Cartesian3.normalize(moonPos, new Cartesian3());
+  const raan = Math.atan2(moonDir.y, moonDir.x);
+
+  const points: Cartesian3[] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const theta = (i / numPoints) * 2 * Math.PI;
+    const r = semiMajor * (1 - ecc * ecc) / (1 + ecc * Math.cos(theta));
+
+    // Orbit in perifocal frame
+    const xP = r * Math.cos(theta);
+    const yP = r * Math.sin(theta);
+
+    // Rotate by inclination (around x-axis) then RAAN (around z-axis)
+    const cosI = Math.cos(inclination), sinI = Math.sin(inclination);
+    const cosR = Math.cos(raan), sinR = Math.sin(raan);
+
+    const x1 = xP;
+    const y1 = yP * cosI;
+    const z1 = yP * sinI;
+
+    const x = x1 * cosR - y1 * sinR;
+    const y = x1 * sinR + y1 * cosR;
+    const z = z1;
+
+    points.push(new Cartesian3(x, y, z));
+  }
+  return points;
+}
+
+/**
+ * Get trajectory points for the lunar transit view (Earth → Moon).
+ * Covers t = 0.00 to 0.42 (launch through closest approach).
+ */
+export function getLunarTransitPoints(
+  date: Date = new Date(),
+  numPoints = 300
+): Cartesian3[] {
+  const moonPos = getMoonPositionECEF(date);
+  const points: Cartesian3[] = [];
+  const tStart = 0.00, tEnd = 0.42;
+
+  for (let i = 0; i <= numPoints; i++) {
+    const t = tStart + (i / numPoints) * (tEnd - tStart);
+    const { along, perp } = interpolateTrajectory(t);
+    points.push(trajectoryToECEF(along, perp, moonPos));
+  }
+  return points;
+}
+
+/**
+ * Get trajectory points for the flyby & return view (Moon loop → Earth).
+ * Covers t = 0.35 to 1.0 (approach, lunar loop, return, splashdown).
+ */
+export function getFlybyReturnPoints(
+  date: Date = new Date(),
+  numPoints = 400
+): Cartesian3[] {
+  const moonPos = getMoonPositionECEF(date);
+  const points: Cartesian3[] = [];
+  const tStart = 0.35, tEnd = 1.0;
+
+  for (let i = 0; i <= numPoints; i++) {
+    const t = tStart + (i / numPoints) * (tEnd - tStart);
+    const { along, perp } = interpolateTrajectory(t);
+    points.push(trajectoryToECEF(along, perp, moonPos));
+  }
+  return points;
+}
+
+/**
+ * Get milestones filtered by the active view.
+ */
+export function getMilestonesForView(
+  view: ArtemisViewMode,
+  date: Date = new Date()
+): { milestone: TrajectoryMilestone; position: Cartesian3 }[] {
+  const moonPos = getMoonPositionECEF(date);
+
+  const tRanges: Record<string, [number, number]> = {
+    "earth-orbit":    [-0.01, 0.06],
+    "lunar-transit":  [-0.01, 0.45],
+    "flyby-return":   [0.30, 1.01],
+  };
+
+  const [tMin, tMax] = tRanges[view] || [0, 1];
+
+  return MILESTONES
+    .filter((m) => m.t >= tMin && m.t <= tMax)
+    .map((milestone) => {
+      const { along, perp } = interpolateTrajectory(milestone.t);
+      return { milestone, position: trajectoryToECEF(along, perp, moonPos) };
+    });
 }

@@ -78,6 +78,9 @@ export interface MapPin {
 /* ── Weather Tile Layers ──────────────────────────── */
 export type WeatherTileLayerKey = "clouds_new" | "precipitation_new" | "temp_new" | "wind_new";
 
+/* ── Artemis Views ────────────────────────────────── */
+export type ArtemisViewMode = "none" | "earth-orbit" | "lunar-transit" | "flyby-return";
+
 /* ── Layer Toggle ──────────────────────────────────── */
 export type LayerType = "news" | "weather" | "webcams" | "traffic" | "satellites";
 

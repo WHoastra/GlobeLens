@@ -27,7 +27,7 @@ import { SatelliteManager, ISSInfo, ArtemisInfo } from "@/lib/satelliteManager";
 import { NewsRenderer } from "@/lib/newsRenderer";
 import { WebcamRenderer } from "@/lib/webcamRenderer";
 import { getMoonPositionECEF } from "@/lib/artemis";
-import { NewsArticle, Webcam, WeatherTileLayerKey } from "@/types";
+import { NewsArticle, Webcam, WeatherTileLayerKey, ArtemisViewMode } from "@/types";
 
 // Configure Cesium static asset paths
 if (typeof window !== "undefined") {
@@ -49,7 +49,7 @@ interface GlobeViewerProps {
   trackISS?: boolean;
   trackArtemis?: boolean;
   showISSOrbit?: boolean;
-  showArtemisOrbit?: boolean;
+  artemisView?: ArtemisViewMode;
   showNews?: boolean;
   newsArticles?: NewsArticle[];
   onNewsClick?: (article: NewsArticle, lat: number, lon: number) => void;
@@ -69,7 +69,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, showArtemisOrbit = false, showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -578,12 +578,12 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     }
   }, [showISSOrbit]);
 
-  // Toggle Artemis orbit line
+  // Switch Artemis trajectory view
   useEffect(() => {
     if (satManagerRef.current) {
-      satManagerRef.current.setArtemisOrbitVisible(showArtemisOrbit);
+      satManagerRef.current.setArtemisView(artemisView);
     }
-  }, [showArtemisOrbit]);
+  }, [artemisView]);
 
   // Toggle satellite layer visibility
   useEffect(() => {

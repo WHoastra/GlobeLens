@@ -28,8 +28,10 @@ import {
 } from "./satellites";
 import {
   getOrionPosition,
-  getArtemisTrajectoryPoints,
-  getMilestonePositions,
+  getEarthOrbitPoints,
+  getLunarTransitPoints,
+  getFlybyReturnPoints,
+  getMilestonesForView,
   isMissionActive,
   isMissionComplete,
   formatMET,
@@ -38,6 +40,7 @@ import {
   ARTEMIS_CREW,
   ARTEMIS_STREAM_URL,
 } from "./artemis";
+import type { ArtemisViewMode } from "@/types";
 
 const TYPE_COLORS: Record<SatelliteType, Color> = {
   station: Color.WHITE,
@@ -202,8 +205,7 @@ export class SatelliteManager {
     }
     this.orbitLines.show = false;
 
-    // Add Artemis II trajectory arc (hidden by default)
-    this.drawArtemisTrajectory();
+    // Artemis trajectory is drawn on demand via setArtemisView()
     this.artemisOrbitLines.show = false;
 
     this.update();
@@ -426,20 +428,46 @@ export class SatelliteManager {
     }
   }
 
-  setArtemisOrbitVisible(visible: boolean) {
-    if (this.artemisOrbitLines) {
-      this.artemisOrbitLines.show = visible;
-    }
-    for (const entity of this.artemisMilestoneEntities) {
-      entity.show = visible;
+  private artemisView: ArtemisViewMode = "none";
+
+  setArtemisView(view: ArtemisViewMode) {
+    this.artemisView = view;
+    this.redrawArtemisForView(view);
+    if (view !== "none") {
+      this.flyToArtemisView(view);
     }
   }
 
-  private drawArtemisTrajectory() {
-    if (!this.artemisOrbitLines) return;
+  private redrawArtemisForView(view: ArtemisViewMode) {
+    // Clear existing polylines and milestones
+    if (this.artemisOrbitLines) {
+      this.artemisOrbitLines.removeAll();
+    }
+    this.clearMilestones();
+
+    if (view === "none") {
+      if (this.artemisOrbitLines) this.artemisOrbitLines.show = false;
+      return;
+    }
+
     const now = new Date();
-    const points = getArtemisTrajectoryPoints(now, 500);
-    if (points.length < 2) return;
+    let points: Cartesian3[];
+
+    switch (view) {
+      case "earth-orbit":
+        points = getEarthOrbitPoints(now);
+        break;
+      case "lunar-transit":
+        points = getLunarTransitPoints(now);
+        break;
+      case "flyby-return":
+        points = getFlybyReturnPoints(now);
+        break;
+      default:
+        return;
+    }
+
+    if (points.length < 2 || !this.artemisOrbitLines) return;
 
     // Glowing trajectory line
     this.artemisOrbitLines.add({
@@ -451,10 +479,10 @@ export class SatelliteManager {
       }),
       show: true,
     });
+    this.artemisOrbitLines.show = true;
 
-    // Milestone markers along the trajectory
-    this.clearMilestones();
-    const milestones = getMilestonePositions(now);
+    // Milestone markers for this view
+    const milestones = getMilestonesForView(view, now);
     for (const { milestone, position } of milestones) {
       const markerEntity = this.viewer.entities.add({
         position,
@@ -482,9 +510,66 @@ export class SatelliteManager {
           showBackground: true,
           backgroundPadding: new Cartesian2(5, 3),
         },
-        show: false, // hidden until Artemis orbit is toggled on
+        show: true,
       });
       this.artemisMilestoneEntities.push(markerEntity);
+    }
+  }
+
+  private flyToArtemisView(view: ArtemisViewMode) {
+    const moonPos = getMoonPositionECEF(new Date());
+    const moonDist = Cartesian3.magnitude(moonPos);
+    const moonDir = Cartesian3.normalize(moonPos, new Cartesian3());
+    const up = new Cartesian3(0, 0, 1);
+    const sideDir = Cartesian3.cross(moonDir, up, new Cartesian3());
+    Cartesian3.normalize(sideDir, sideDir);
+
+    if (view === "earth-orbit") {
+      // Zoom near Earth to see the high elliptical orbit
+      const offset = Cartesian3.multiplyByScalar(sideDir, 200_000_000, new Cartesian3());
+      this.viewer.camera.flyTo({
+        destination: offset,
+        orientation: {
+          direction: Cartesian3.normalize(
+            Cartesian3.negate(offset, new Cartesian3()),
+            new Cartesian3()
+          ),
+          up: new Cartesian3(0, 0, 1),
+        },
+        duration: 2.5,
+      });
+    } else if (view === "lunar-transit") {
+      // View from side showing Earth-Moon transit arc
+      const midpoint = Cartesian3.multiplyByScalar(moonDir, moonDist * 0.45, new Cartesian3());
+      const offset = Cartesian3.multiplyByScalar(sideDir, moonDist * 0.8, new Cartesian3());
+      const cameraPos = Cartesian3.add(midpoint, offset, new Cartesian3());
+      this.viewer.camera.flyTo({
+        destination: cameraPos,
+        orientation: {
+          direction: Cartesian3.normalize(
+            Cartesian3.subtract(midpoint, cameraPos, new Cartesian3()),
+            new Cartesian3()
+          ),
+          up: new Cartesian3(0, 0, 1),
+        },
+        duration: 3,
+      });
+    } else if (view === "flyby-return") {
+      // View biased toward Moon side to show the loop and return
+      const midpoint = Cartesian3.multiplyByScalar(moonDir, moonDist * 0.6, new Cartesian3());
+      const offset = Cartesian3.multiplyByScalar(sideDir, moonDist * 0.9, new Cartesian3());
+      const cameraPos = Cartesian3.add(midpoint, offset, new Cartesian3());
+      this.viewer.camera.flyTo({
+        destination: cameraPos,
+        orientation: {
+          direction: Cartesian3.normalize(
+            Cartesian3.subtract(midpoint, cameraPos, new Cartesian3()),
+            new Cartesian3()
+          ),
+          up: new Cartesian3(0, 0, 1),
+        },
+        duration: 3,
+      });
     }
   }
 

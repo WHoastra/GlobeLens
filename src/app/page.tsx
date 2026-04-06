@@ -7,7 +7,7 @@ import { LayerToggle, InfoPanel, LoadingOverlay } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
-import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam } from "@/types";
+import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 
 // CesiumJS must be loaded client-side only (no SSR)
@@ -81,7 +81,7 @@ export default function Home() {
 
   // Orbit line visibility — off by default
   const [showISSOrbit, setShowISSOrbit] = useState(false);
-  const [showArtemisOrbit, setShowArtemisOrbit] = useState(false);
+  const [artemisView, setArtemisView] = useState<ArtemisViewMode>("none");
 
 
   // Camera distance for navigation buttons
@@ -197,7 +197,7 @@ export default function Home() {
         onNewsClick={(article) => handleNewsClick(article)}
         showWebcams={layers.webcams}
         onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setLiveFeed(null); setSelectedArticle(null); }}
-        showArtemisOrbit={showArtemisOrbit && showArtemis}
+        artemisView={showArtemis ? artemisView : "none"}
         showArtemisActive={showArtemis}
         onCameraDistanceChange={setCameraDistanceKm}
         onFlyToEarth={flyToEarthRef}
@@ -249,8 +249,8 @@ export default function Home() {
           <button
             onClick={() => {
               setShowArtemis((p) => !p);
-              if (showArtemis) { setTrackArtemis(false); setShowArtemisOrbit(false); }
-              else { setShowArtemisOrbit(true); }
+              if (showArtemis) { setTrackArtemis(false); setArtemisView("none"); }
+              else { setArtemisView("lunar-transit"); }
             }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all backdrop-blur-md border ${
               showArtemis
@@ -278,17 +278,25 @@ export default function Home() {
                   <h3 className="text-sm font-semibold text-orange-300">Artemis II — Orion</h3>
                   <span className="text-white/30 text-xs">{artemisExpanded ? "▼" : "▶"}</span>
                 </button>
-                <button
-                  onClick={() => setShowArtemisOrbit((p) => !p)}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                    showArtemisOrbit
-                      ? "border-orange-400/40 text-orange-300 bg-orange-400/10"
-                      : "border-white/10 text-white/30 hover:text-white/50"
-                  }`}
-                  title="Toggle orbit line"
-                >
-                  Orbit
-                </button>
+                <div className="flex gap-1">
+                  {(["earth-orbit", "lunar-transit", "flyby-return"] as const).map((view) => {
+                    const labels = { "earth-orbit": "Earth", "lunar-transit": "Transit", "flyby-return": "Flyby" } as const;
+                    const isActive = artemisView === view;
+                    return (
+                      <button
+                        key={view}
+                        onClick={() => setArtemisView(isActive ? "none" : view)}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                          isActive
+                            ? "border-orange-400/40 text-orange-300 bg-orange-400/10"
+                            : "border-white/10 text-white/30 hover:text-white/50"
+                        }`}
+                      >
+                        {labels[view]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {artemisExpanded && (
                 <div className="px-4 pb-4">
