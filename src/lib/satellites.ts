@@ -28,13 +28,6 @@ export interface SatellitePosition {
   heading: number; // radians, 0 = north, CW positive
 }
 
-const TLE_SOURCES: { type: SatelliteType; url: string }[] = [
-  { type: "station", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle" },
-  { type: "starlink", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle" },
-  { type: "gps", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=tle" },
-  { type: "weather", url: "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle" },
-];
-
 const CACHE_KEY = "globelens_tle_cache";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -95,23 +88,11 @@ export async function fetchAllSatellites(): Promise<SatelliteData[]> {
         results.push(...sats);
         cacheEntries.push({ type, tle });
       }
+    } else {
+      console.warn("[Satellites] Proxy returned", res.status);
     }
-  } catch {
-    // fallback: try direct fetch
-    await Promise.all(
-      TLE_SOURCES.map(async ({ type, url }) => {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) return;
-          const text = await res.text();
-          const sats = parseTLE(text, type);
-          results.push(...sats);
-          cacheEntries.push({ type, tle: text });
-        } catch {
-          // skip failed fetches
-        }
-      })
-    );
+  } catch (err) {
+    console.warn("[Satellites] Proxy fetch failed:", err);
   }
 
   // Save to cache

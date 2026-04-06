@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Cartesian3,
   Viewer,
@@ -43,6 +43,7 @@ interface MoonViewerProps {
 }
 
 export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerProps) {
+  const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const artemisPointsRef = useRef<BillboardCollection | null>(null);
@@ -51,6 +52,18 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
 
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return;
+
+    // Wait for Cesium to be available (loaded via external script tag)
+    if (typeof Viewer === "undefined") {
+      const check = setInterval(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (typeof window !== "undefined" && (window as any).Cesium) {
+          clearInterval(check);
+          setCesiumReady(true);
+        }
+      }, 100);
+      return () => clearInterval(check);
+    }
 
     const ionToken = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
     if (ionToken) {
@@ -181,7 +194,8 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
       artemisPointsRef.current = null;
       artemisLabelRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady]);
 
   // Update Artemis position relative to Moon
   useEffect(() => {

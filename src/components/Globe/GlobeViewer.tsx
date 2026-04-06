@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Cartesian3,
   Cartesian2,
@@ -70,6 +70,7 @@ interface GlobeViewerProps {
 export type { ISSInfo, ArtemisInfo };
 
 export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, showArtemisOrbit = false, showNews = false, newsArticles, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+  const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const weatherLayersRef = useRef<Map<WeatherTileLayerKey, ImageryLayer>>(new Map());
@@ -101,6 +102,18 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
 
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return;
+
+    // Wait for Cesium to be available (loaded via external script tag)
+    if (typeof Viewer === "undefined") {
+      const check = setInterval(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (typeof window !== "undefined" && (window as any).Cesium) {
+          clearInterval(check);
+          setCesiumReady(true);
+        }
+      }, 100);
+      return () => clearInterval(check);
+    }
 
     // Set Cesium Ion token for Moon terrain and other assets
     const ionToken = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
@@ -346,7 +359,8 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       weatherLayersRef.current.clear();
       trafficLayerRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady]);
 
   // Manage OpenWeatherMap tile layers — add/remove as user toggles each sub-layer
   useEffect(() => {

@@ -1,3 +1,8 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -10,15 +15,15 @@ const nextConfig = {
         https: false,
         zlib: false,
       };
-
-      // Load Cesium from the global script instead of bundling it.
-      // This avoids SWC converting Cesium's octal escapes into
-      // illegal template literal sequences.
-      config.externals = [
-        ...(Array.isArray(config.externals) ? config.externals : []),
-        { cesium: "Cesium" },
-      ];
     }
+
+    // Redirect bare "cesium" imports to a tiny shim that re-exports
+    // window.Cesium (loaded via script tag in layout.tsx).
+    // This avoids SWC transpiling Cesium source and breaking on octal escapes.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "cesium$": path.resolve(__dirname, "src/lib/cesiumShim.js"),
+    };
 
     config.module.unknownContextCritical = false;
 

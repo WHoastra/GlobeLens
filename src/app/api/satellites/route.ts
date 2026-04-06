@@ -19,11 +19,15 @@ export async function GET() {
           headers: { "User-Agent": "GlobeLens/1.0" },
           next: { revalidate: 3600 },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`[Satellites] CelesTrak ${type} returned ${res.status}`);
+          return;
+        }
         const text = await res.text();
         results.push({ type, tle: text });
-      } catch {
-        // skip failed sources
+        console.log(`[Satellites] Loaded ${type} TLE data`);
+      } catch (err) {
+        console.error(`[Satellites] Failed to fetch ${type}:`, err);
       }
     })
   );
