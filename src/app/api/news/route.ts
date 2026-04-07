@@ -21,12 +21,25 @@ interface GeocodedArticle {
 }
 
 // ── Category Queries ──────────────────────────────────────────
+// Each category uses multiple single-keyword fetches (GDELT treats spaces as AND)
 const CATEGORY_QUERIES = [
-  { category: "conflict", query: "war military conflict attack sourcelang:English" },
-  { category: "finance", query: "economy markets stocks inflation sourcelang:English" },
-  { category: "tech", query: "AI technology startup cyber software sourcelang:English" },
-  { category: "politics", query: "election congress president government sourcelang:English" },
-  { category: "world", query: "world sourcelang:English" },
+  { category: "conflict", query: "war sourcelang:English", maxrecords: 15 },
+  { category: "conflict", query: "military sourcelang:English", maxrecords: 15 },
+  { category: "conflict", query: "airstrike sourcelang:English", maxrecords: 10 },
+  { category: "conflict", query: "missile sourcelang:English", maxrecords: 10 },
+  { category: "finance", query: "stocks sourcelang:English", maxrecords: 15 },
+  { category: "finance", query: "economy sourcelang:English", maxrecords: 15 },
+  { category: "finance", query: "inflation sourcelang:English", maxrecords: 10 },
+  { category: "finance", query: "GDP sourcelang:English", maxrecords: 10 },
+  { category: "tech", query: "AI sourcelang:English", maxrecords: 15 },
+  { category: "tech", query: "technology sourcelang:English", maxrecords: 15 },
+  { category: "tech", query: "startup sourcelang:English", maxrecords: 10 },
+  { category: "tech", query: "cybersecurity sourcelang:English", maxrecords: 10 },
+  { category: "politics", query: "election sourcelang:English", maxrecords: 15 },
+  { category: "politics", query: "president sourcelang:English", maxrecords: 15 },
+  { category: "politics", query: "congress sourcelang:English", maxrecords: 10 },
+  { category: "politics", query: "parliament sourcelang:English", maxrecords: 10 },
+  { category: "world", query: "world sourcelang:English", maxrecords: 50 },
 ];
 
 // ── File-based Cache ──────────────────────────────────────────
@@ -55,15 +68,16 @@ function writeCache(data: GeocodedArticle[]) {
   }
 }
 
-// ── GDELT Fetch (per category) ────────────────────────────────
+// ── GDELT Fetch (per query) ───────────────────────────────────
 async function fetchCategoryArticles(
   category: string,
-  query: string
+  query: string,
+  maxrecords = 50
 ): Promise<(Record<string, string> & { category: string })[]> {
   const params = new URLSearchParams({
     query,
     mode: "ArtList",
-    maxrecords: "50",
+    maxrecords: String(maxrecords),
     format: "json",
     sort: "DateDesc",
   });
@@ -83,8 +97,8 @@ async function fetchCategoryArticles(
 // ── Fetch all categories in parallel ──────────────────────────
 async function fetchAllCategories(): Promise<(Record<string, string> & { category: string })[]> {
   const results = await Promise.allSettled(
-    CATEGORY_QUERIES.map(({ category, query }) =>
-      fetchCategoryArticles(category, query)
+    CATEGORY_QUERIES.map(({ category, query, maxrecords }) =>
+      fetchCategoryArticles(category, query, maxrecords)
     )
   );
 
