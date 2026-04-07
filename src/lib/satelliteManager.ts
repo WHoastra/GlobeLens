@@ -366,12 +366,30 @@ export class SatelliteManager {
         scaleByDistance: new NearFarScalar(1e7, 1.0, 5e8, 0.5),
       });
 
-      // Track Artemis if tracking mode is on
+      // Track Artemis — side view showing Earth, Artemis, and Moon
       if (this.isTrackingArtemis) {
-        viewer.camera.lookAt(
-          orion.position,
-          new Cartesian3(0, 0, Math.max(orion.distanceFromEarthKm * 500, 5_000_000))
-        );
+        const moonPos = getMoonPositionECEF(now);
+        const moonDist = Cartesian3.magnitude(moonPos);
+        const moonDir = Cartesian3.normalize(moonPos, new Cartesian3());
+        const upDir = new Cartesian3(0, 0, 1);
+        const sideDir = Cartesian3.cross(moonDir, upDir, new Cartesian3());
+        Cartesian3.normalize(sideDir, sideDir);
+
+        // Camera at midpoint of Earth-Moon, offset perpendicular for side view
+        const midpoint = Cartesian3.multiplyByScalar(moonDir, moonDist * 0.45, new Cartesian3());
+        const offset = Cartesian3.multiplyByScalar(sideDir, moonDist * 0.9, new Cartesian3());
+        const cameraPos = Cartesian3.add(midpoint, offset, new Cartesian3());
+
+        viewer.camera.setView({
+          destination: cameraPos,
+          orientation: {
+            direction: Cartesian3.normalize(
+              Cartesian3.subtract(midpoint, cameraPos, new Cartesian3()),
+              new Cartesian3()
+            ),
+            up: upDir,
+          },
+        });
       }
     }
 

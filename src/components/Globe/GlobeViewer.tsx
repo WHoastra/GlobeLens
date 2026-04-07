@@ -341,8 +341,9 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
 
     const removeListener = viewer.clock.onTick.addEventListener(() => {
       if (viewer.isDestroyed()) return;
-      // Don't auto-rotate when orbiting the Moon
+      // Don't auto-rotate when orbiting the Moon or tracking Artemis/ISS
       if (orbitingMoonRef.current) return;
+      if (trackArtemisRef.current || trackISSRef.current) return;
       const altitude = viewer.camera.positionCartographic.height;
       if (!userInteracting && altitude >= ZOOM_OUT_THRESHOLD) {
         viewer.scene.camera.rotate(Cartesian3.UNIT_Z, 0.0002);
