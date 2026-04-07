@@ -21,24 +21,12 @@ interface GeocodedArticle {
 }
 
 // ── Category Queries ──────────────────────────────────────────
-// Each category uses multiple single-keyword fetches (GDELT treats spaces as AND)
+// One focused keyword per category to avoid GDELT rate limits
 const CATEGORY_QUERIES = [
-  { category: "conflict", query: "war sourcelang:English", maxrecords: 15 },
-  { category: "conflict", query: "military sourcelang:English", maxrecords: 15 },
-  { category: "conflict", query: "airstrike sourcelang:English", maxrecords: 10 },
-  { category: "conflict", query: "missile sourcelang:English", maxrecords: 10 },
-  { category: "finance", query: "stocks sourcelang:English", maxrecords: 15 },
-  { category: "finance", query: "economy sourcelang:English", maxrecords: 15 },
-  { category: "finance", query: "inflation sourcelang:English", maxrecords: 10 },
-  { category: "finance", query: "GDP sourcelang:English", maxrecords: 10 },
-  { category: "tech", query: "AI sourcelang:English", maxrecords: 15 },
-  { category: "tech", query: "technology sourcelang:English", maxrecords: 15 },
-  { category: "tech", query: "startup sourcelang:English", maxrecords: 10 },
-  { category: "tech", query: "cybersecurity sourcelang:English", maxrecords: 10 },
-  { category: "politics", query: "election sourcelang:English", maxrecords: 15 },
-  { category: "politics", query: "president sourcelang:English", maxrecords: 15 },
-  { category: "politics", query: "congress sourcelang:English", maxrecords: 10 },
-  { category: "politics", query: "parliament sourcelang:English", maxrecords: 10 },
+  { category: "conflict", query: "war sourcelang:English", maxrecords: 50 },
+  { category: "finance", query: "stocks sourcelang:English", maxrecords: 50 },
+  { category: "tech", query: "AI sourcelang:English", maxrecords: 50 },
+  { category: "politics", query: "election sourcelang:English", maxrecords: 50 },
   { category: "world", query: "world sourcelang:English", maxrecords: 50 },
 ];
 
@@ -94,29 +82,26 @@ async function fetchCategoryArticles(
     .map((a: Record<string, string>) => ({ ...a, category }));
 }
 
-// ── Fetch all categories in parallel ──────────────────────────
+// ── Fetch all categories sequentially to avoid GDELT rate limits ──
 async function fetchAllCategories(): Promise<(Record<string, string> & { category: string })[]> {
-  const results = await Promise.allSettled(
-    CATEGORY_QUERIES.map(({ category, query, maxrecords }) =>
-      fetchCategoryArticles(category, query, maxrecords)
-    )
-  );
-
   const allArticles: (Record<string, string> & { category: string })[] = [];
   const seen = new Set<string>();
 
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      for (const article of result.value) {
-        // Deduplicate by URL
+  for (const { category, query, maxrecords } of CATEGORY_QUERIES) {
+    try {
+      const articles = await fetchCategoryArticles(category, query, maxrecords);
+      for (const article of articles) {
         if (!seen.has(article.url)) {
           seen.add(article.url);
           allArticles.push(article);
         }
       }
-    } else {
-      console.warn("[News API] Category fetch failed:", result.reason);
+      console.log(`[News API] ${category}: ${articles.length} articles`);
+    } catch (e) {
+      console.warn(`[News API] ${category} fetch failed:`, e);
     }
+    // Small delay between requests to avoid GDELT 429
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   return allArticles;
