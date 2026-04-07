@@ -1,7 +1,7 @@
 "use client";
 
 import { Newspaper, Cloud, Camera, Car, Satellite } from "lucide-react";
-import { LayerState, LayerType, WeatherTileLayerKey, NewsCategory, NEWS_CATEGORIES } from "@/types";
+import { LayerState, LayerType, WeatherTileLayerKey, NewsCategory, NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 
 interface LayerToggleProps {
   layers: LayerState;
@@ -10,6 +10,8 @@ interface LayerToggleProps {
   onWeatherLayerToggle?: (layer: WeatherTileLayerKey) => void;
   newsCategories?: Set<NewsCategory>;
   onNewsCategoryToggle?: (cat: NewsCategory) => void;
+  satelliteTypes?: Set<string>;
+  onSatelliteTypeToggle?: (type: string) => void;
 }
 
 const WEATHER_TILE_OPTIONS: { key: WeatherTileLayerKey; label: string; color: string }[] = [
@@ -71,7 +73,7 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
   },
 };
 
-export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle }: LayerToggleProps) {
+export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle, satelliteTypes, onSatelliteTypeToggle }: LayerToggleProps) {
   return (
     <div className="absolute z-10 hidden md:flex md:top-4 md:right-4 md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
@@ -108,6 +110,29 @@ export default function LayerToggle({ layers, onToggle, activeWeatherLayers = []
                   >
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: isActive ? 1 : 0.3 }} />
                     {catLabel}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Satellite type toggles */}
+          {key === "satellites" && layers.satellites && satelliteTypes && onSatelliteTypeToggle && (
+            <div className="hidden md:flex gap-1 mt-1 ml-1 flex-wrap">
+              {SATELLITE_CATEGORIES.map(({ key: satKey, label: satLabel, color }) => {
+                const isActive = satelliteTypes.has(satKey);
+                return (
+                  <button
+                    key={satKey}
+                    onClick={() => onSatelliteTypeToggle(satKey)}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all border ${
+                      isActive
+                        ? "border-white/30 text-white"
+                        : "border-white/10 text-white/30"
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: isActive ? 1 : 0.3 }} />
+                    {satLabel}
                   </button>
                 );
               })}

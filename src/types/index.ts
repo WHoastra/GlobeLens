@@ -89,6 +89,14 @@ export interface MapPin {
 /* ── Weather Tile Layers ──────────────────────────── */
 export type WeatherTileLayerKey = "clouds_new" | "precipitation_new" | "temp_new" | "wind_new";
 
+/* ── Satellite Categories ─────────────────────────── */
+export const SATELLITE_CATEGORIES: { key: string; label: string; color: string }[] = [
+  { key: "starlink", label: "Starlink", color: "#4dabf7" },
+  { key: "gps", label: "GPS", color: "#69db7c" },
+  { key: "weather", label: "Weather", color: "#ffd43b" },
+  { key: "station", label: "Stations", color: "#ffffff" },
+];
+
 /* ── Artemis Views ────────────────────────────────── */
 export type ArtemisViewMode = "none" | "earth-orbit" | "lunar-transit" | "flyby-return";
 

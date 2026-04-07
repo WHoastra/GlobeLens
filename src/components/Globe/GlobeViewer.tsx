@@ -46,6 +46,7 @@ interface GlobeViewerProps {
   activeWeatherLayers?: WeatherTileLayerKey[];
   showTraffic?: boolean;
   showSatellites?: boolean;
+  satelliteTypes?: Set<string>;
   trackISS?: boolean;
   trackArtemis?: boolean;
   showISSOrbit?: boolean;
@@ -71,7 +72,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -607,6 +608,13 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       satManagerRef.current.setVisible(showSatellites);
     }
   }, [showSatellites]);
+
+  // Update satellite type filter
+  useEffect(() => {
+    if (satManagerRef.current && satelliteTypes) {
+      satManagerRef.current.setVisibleTypes(satelliteTypes);
+    }
+  }, [satelliteTypes]);
 
   // Toggle ISS tracking
   useEffect(() => {

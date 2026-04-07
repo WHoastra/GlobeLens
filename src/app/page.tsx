@@ -10,7 +10,7 @@ import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory } from "@/types";
-import { NEWS_CATEGORIES } from "@/types";
+import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 
 // CesiumJS must be loaded client-side only (no SSR)
@@ -61,6 +61,7 @@ export default function Home() {
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [newsCategories, setNewsCategories] = useState<Set<NewsCategory>>(() => new Set<NewsCategory>(["conflict", "finance", "tech", "politics", "world"]));
+  const [satelliteTypes, setSatelliteTypes] = useState<Set<string>>(() => new Set(["starlink", "gps", "weather", "station"]));
 
   // Webcam state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -201,6 +202,7 @@ export default function Home() {
         activeWeatherLayers={layers.weather ? activeWeatherLayers : []}
         showTraffic={layers.traffic}
         showSatellites={layers.satellites}
+        satelliteTypes={satelliteTypes}
         trackISS={trackISS}
         trackArtemis={trackArtemis}
         showISSOrbit={showISSOrbit && showISS}
@@ -231,6 +233,12 @@ export default function Home() {
         onNewsCategoryToggle={(cat) => setNewsCategories((prev) => {
           const next = new Set<NewsCategory>(prev);
           if (next.has(cat)) next.delete(cat); else next.add(cat);
+          return next;
+        })}
+        satelliteTypes={satelliteTypes}
+        onSatelliteTypeToggle={(type) => setSatelliteTypes((prev) => {
+          const next = new Set(prev);
+          if (next.has(type)) next.delete(type); else next.add(type);
           return next;
         })}
       />
@@ -289,6 +297,30 @@ export default function Home() {
                       key={key}
                       onClick={() => setNewsCategories((prev) => {
                         const next = new Set<NewsCategory>(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
+                        return next;
+                      })}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium border transition-all ${
+                        active ? "border-white/30 text-white" : "border-white/5 text-white/30"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color, opacity: active ? 1 : 0.3 }} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* Satellite type filters */}
+            {layers.satellites && (
+              <div className="flex flex-wrap gap-1 px-1">
+                {SATELLITE_CATEGORIES.map(({ key, label, color }) => {
+                  const active = satelliteTypes.has(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSatelliteTypes((prev) => {
+                        const next = new Set(prev);
                         if (next.has(key)) next.delete(key); else next.add(key);
                         return next;
                       })}

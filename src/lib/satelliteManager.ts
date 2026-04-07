@@ -164,6 +164,7 @@ export class SatelliteManager {
   private isTracking = false;
   private isTrackingArtemis = false;
   private maxVisibleSats: number;
+  private visibleTypes: Set<string> = new Set(["station", "starlink", "gps", "weather"]);
 
   constructor(viewer: Viewer, options?: SatelliteManagerOptions) {
     this.viewer = viewer;
@@ -387,6 +388,7 @@ export class SatelliteManager {
       const visible = scored.slice(0, this.maxVisibleSats);
 
       for (const { sat } of visible) {
+        if (!this.visibleTypes.has(sat.type)) continue;
         const pos = getSatellitePosition(sat, now);
         if (!pos) continue;
 
@@ -426,6 +428,10 @@ export class SatelliteManager {
   setVisible(visible: boolean) {
     this.isVisible = visible;
     this.update();
+  }
+
+  setVisibleTypes(types: Set<string>) {
+    this.visibleTypes = types;
   }
 
   setISSOrbitVisible(visible: boolean) {
