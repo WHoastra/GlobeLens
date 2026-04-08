@@ -346,7 +346,7 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       if (trackArtemisRef.current || trackISSRef.current) return;
       const altitude = viewer.camera.positionCartographic.height;
       if (!userInteracting && altitude >= ZOOM_OUT_THRESHOLD) {
-        viewer.scene.camera.rotate(Cartesian3.UNIT_Z, 0.0002);
+        viewer.scene.camera.rotate(Cartesian3.UNIT_Z, 0.001);
       }
     });
 
