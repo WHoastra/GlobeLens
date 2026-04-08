@@ -1,7 +1,9 @@
 "use client";
 
-import { Rocket, MapPin, Moon, Clock, Users, ExternalLink, Crosshair } from "lucide-react";
+import { useState } from "react";
+import { Rocket, MapPin, Moon, Clock, Users, ExternalLink, Crosshair, Play, X } from "lucide-react";
 import type { ArtemisInfo } from "@/lib/satelliteManager";
+import { ARTEMIS_STREAM_URL, ARTEMIS_STREAM_EMBED } from "@/lib/artemis";
 
 interface ArtemisPanelProps {
   info: ArtemisInfo | null;
@@ -10,6 +12,7 @@ interface ArtemisPanelProps {
 }
 
 export default function ArtemisPanel({ info, isTracking, onTrackToggle }: ArtemisPanelProps) {
+  const [showStream, setShowStream] = useState(false);
   if (!info) {
     return <p className="text-sm text-white/40">Awaiting launch data...</p>;
   }
@@ -90,16 +93,53 @@ export default function ArtemisPanel({ info, isTracking, onTrackToggle }: Artemi
         </div>
       )}
 
-      {/* Stream link */}
-      <a
-        href={info.streamUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors"
-      >
-        <ExternalLink size={12} />
-        Watch NASA Artemis II Live
-      </a>
+      {/* Stream toggle + external link */}
+      {showStream ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-orange-400 font-semibold uppercase tracking-wide">NASA Artemis II Live</span>
+            <button onClick={() => setShowStream(false)} className="p-1 rounded hover:bg-white/10">
+              <X size={14} className="text-white/50" />
+            </button>
+          </div>
+          <div className="relative w-full rounded-lg overflow-hidden" style={{ paddingBottom: "56.25%" }}>
+            <iframe
+              src={ARTEMIS_STREAM_EMBED}
+              className="absolute inset-0 w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+          </div>
+          <a
+            href={ARTEMIS_STREAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 text-[10px] text-white/50 hover:text-white/70 transition-colors"
+          >
+            <ExternalLink size={10} />
+            Open on YouTube
+          </a>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowStream(true)}
+            className="flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+          >
+            <Play size={12} />
+            Watch NASA Artemis II Live
+          </button>
+          <a
+            href={ARTEMIS_STREAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/30 hover:text-white/50 transition-colors"
+            title="Open on YouTube"
+          >
+            <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ const GlobeViewer = dynamic(
 // ── Live stream URLs (constants for easy updating) ────────────
 const ISS_LIVE_URL = "https://video.ibm.com/embed/9408562";
 const ISS_LIVE_ALT_URL = "https://video.ibm.com/embed/6540154";
-const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/live_stream?channel=UCLA_DiR1FfKNvjuUpBHmylQ&autoplay=1";
+const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/m3kR2KK8TEs?autoplay=1";
 
 export default function Home() {
   const { isMobile } = useIsMobile();

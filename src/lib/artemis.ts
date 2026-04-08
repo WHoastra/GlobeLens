@@ -20,7 +20,8 @@ export const ARTEMIS_CREW = [
   { name: "Jeremy Hansen", role: "Mission Specialist 2 (CSA)" },
 ];
 
-export const ARTEMIS_STREAM_URL = "https://www.youtube.com/NASA";
+export const ARTEMIS_STREAM_URL = "https://www.youtube.com/live/m3kR2KK8TEs";
+export const ARTEMIS_STREAM_EMBED = "https://www.youtube.com/embed/m3kR2KK8TEs?autoplay=1";
 
 // ── Mission Profile (free-return trajectory) ───────────────────
 // Artemis II follows a free-return lunar flyby:
