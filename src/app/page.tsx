@@ -728,21 +728,19 @@ export default function Home() {
         </button>
       </div>
 
-      {/* News category legend */}
-      {layers.news && newsArticles.length > 0 && (
-        <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 z-10 flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
-          {NEWS_CATEGORIES.map(({ key, label, color }) => (
-            <div key={key} className="flex items-center gap-1">
-              <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Attribution */}
-      <div className="absolute bottom-2 right-2 z-10">
-        <p className="text-[8px] md:text-[10px] text-white/30 tracking-wide">
+      {/* Attribution + News legend — bottom right */}
+      <div className="absolute bottom-2 right-3 z-10 flex flex-col items-end gap-1">
+        {layers.news && newsArticles.length > 0 && (
+          <div className="flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+            {NEWS_CATEGORIES.map(({ key, label, color }) => (
+              <div key={key} className="flex items-center gap-1">
+                <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-[10px] md:text-xs text-white/50 font-medium tracking-wide">
           Created By — Whoastra Labs
         </p>
       </div>
