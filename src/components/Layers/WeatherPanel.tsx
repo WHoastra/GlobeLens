@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Cloud, Droplets, Wind, Thermometer } from "lucide-react";
 import type { WeatherData } from "@/types";
 
@@ -14,7 +15,13 @@ function windDirectionLabel(deg: number): string {
   return dirs[Math.round(deg / 45) % 8];
 }
 
+function cToF(c: number): number {
+  return c * 9 / 5 + 32;
+}
+
 export default function WeatherPanel({ weather, loading, error }: WeatherPanelProps) {
+  const [unit, setUnit] = useState<"F" | "C">("F");
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-white/50">
@@ -30,12 +37,23 @@ export default function WeatherPanel({ weather, loading, error }: WeatherPanelPr
 
   if (!weather) return null;
 
+  const temp = unit === "F" ? cToF(weather.temperature) : weather.temperature;
+  const feels = unit === "F" ? cToF(weather.feelsLike) : weather.feelsLike;
+
   return (
     <div className="space-y-3">
       {/* Main temp + condition */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-2xl font-bold">{Math.round(weather.temperature)}°C</p>
+          <div className="flex items-baseline gap-1">
+            <p className="text-2xl font-bold">{Math.round(temp)}°{unit}</p>
+            <button
+              onClick={() => setUnit((u) => u === "F" ? "C" : "F")}
+              className="text-xs text-white/40 hover:text-white/70 transition-colors ml-1 px-1.5 py-0.5 rounded border border-white/10 hover:border-white/30"
+            >
+              °{unit === "F" ? "C" : "F"}
+            </button>
+          </div>
           <p className="text-sm text-white/60">{weather.description}</p>
         </div>
         <div className="text-right">
@@ -52,7 +70,7 @@ export default function WeatherPanel({ weather, loading, error }: WeatherPanelPr
           <Thermometer size={14} className="text-orange-300" />
           <div>
             <p className="text-xs text-white/40">Feels like</p>
-            <p className="text-sm font-medium">{Math.round(weather.feelsLike)}°C</p>
+            <p className="text-sm font-medium">{Math.round(feels)}°{unit}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
