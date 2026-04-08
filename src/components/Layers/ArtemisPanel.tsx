@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Rocket, MapPin, Moon, Clock, Users, ExternalLink, Crosshair, Play, X } from "lucide-react";
 import type { ArtemisInfo } from "@/lib/satelliteManager";
-import { ARTEMIS_STREAM_URL, ARTEMIS_STREAM_EMBED } from "@/lib/artemis";
+const ARTEMIS_STREAM_URL = "https://www.youtube.com/live/m3kR2KK8TEs";
+const ARTEMIS_STREAM_EMBED = "https://www.youtube.com/embed/m3kR2KK8TEs?autoplay=1";
 
 interface ArtemisPanelProps {
   info: ArtemisInfo | null;
