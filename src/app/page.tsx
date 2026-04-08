@@ -104,6 +104,9 @@ export default function Home() {
 
   const handleGlobeClick = useCallback((event: GlobeClickEvent) => {
     setSelectedLocation({ latitude: event.latitude, longitude: event.longitude });
+    setSelectedArticle(null);
+    setSelectedWebcam(null);
+    setLiveFeed(null);
     if (isMobile) setBottomSheet("info");
   }, [isMobile]);
 
@@ -185,6 +188,7 @@ export default function Home() {
 
   const handleNewsClick = useCallback((article: NewsArticle) => {
     setSelectedArticle(article);
+    setSelectedLocation(null);
     setLiveFeed(null);
     setSelectedWebcam(null);
     if (isMobile) setBottomSheet("news");
