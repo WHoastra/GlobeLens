@@ -7,9 +7,6 @@ import {
   HorizontalOrigin,
   VerticalOrigin,
   NearFarScalar,
-  ScreenSpaceEventHandler,
-  ScreenSpaceEventType,
-  defined,
   Cartesian2,
   Entity,
   PolylineGlowMaterialProperty,
@@ -90,7 +87,6 @@ export class NewsRenderer {
   private pinLabels: LabelCollection | null = null;
   private beamEntities: { entity: Entity; category: NewsCategory }[] = [];
   private clusters: NewsCluster[] = [];
-  private handler: ScreenSpaceEventHandler | null = null;
   private onArticleClick: ((article: NewsArticle, lat: number, lon: number) => void) | null = null;
   private maxClusters: number | undefined;
   private topBeamCountLimit: number;
@@ -300,36 +296,28 @@ export class NewsRenderer {
     }
   }
 
+  /** Try to handle a click at the given lat/lon. Returns true if a news cluster was found. */
+  tryClick(clickLat: number, clickLon: number): boolean {
+    let nearest: NewsCluster | null = null;
+    let nearestDist = Infinity;
+    for (const c of this.clusters) {
+      const dist = Math.sqrt((c.latitude - clickLat) ** 2 + (c.longitude - clickLon) ** 2);
+      if (dist < nearestDist && dist < 5) {
+        nearest = c;
+        nearestDist = dist;
+      }
+    }
+
+    if (nearest && this.onArticleClick) {
+      const topArticle = nearest.articles[0];
+      this.onArticleClick(topArticle, nearest.latitude, nearest.longitude);
+      return true;
+    }
+    return false;
+  }
+
   enableClickHandler() {
-    if (this.handler || this.viewer.isDestroyed()) return;
-
-    this.handler = new ScreenSpaceEventHandler(this.viewer.scene.canvas);
-    this.handler.setInputAction((movement: { position: Cartesian2 }) => {
-      const pickedPos = this.viewer.camera.pickEllipsoid(
-        movement.position,
-        this.viewer.scene.globe.ellipsoid
-      );
-      if (!defined(pickedPos)) return;
-
-      const clickCart = this.viewer.scene.globe.ellipsoid.cartesianToCartographic(pickedPos);
-      const clickLat = clickCart.latitude * (180 / Math.PI);
-      const clickLon = clickCart.longitude * (180 / Math.PI);
-
-      let nearest: NewsCluster | null = null;
-      let nearestDist = Infinity;
-      for (const c of this.clusters) {
-        const dist = Math.sqrt((c.latitude - clickLat) ** 2 + (c.longitude - clickLon) ** 2);
-        if (dist < nearestDist && dist < 5) {
-          nearest = c;
-          nearestDist = dist;
-        }
-      }
-
-      if (nearest && this.onArticleClick) {
-        const topArticle = nearest.articles[0];
-        this.onArticleClick(topArticle, nearest.latitude, nearest.longitude);
-      }
-    }, ScreenSpaceEventType.LEFT_CLICK);
+    // Click handling is now done via tryClick() from GlobeViewer's unified handler
   }
 
   setVisible(visible: boolean) {
@@ -343,7 +331,6 @@ export class NewsRenderer {
   }
 
   destroy() {
-    if (this.handler) this.handler.destroy();
     this.clearBeams();
     if (this.heatPoints && !this.viewer.isDestroyed()) {
       this.viewer.scene.primitives.remove(this.heatPoints);
@@ -357,6 +344,5 @@ export class NewsRenderer {
     this.heatPoints = null;
     this.pinPoints = null;
     this.pinLabels = null;
-    this.handler = null;
   }
 }

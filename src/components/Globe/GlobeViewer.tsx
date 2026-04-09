@@ -309,6 +309,13 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       );
       if (defined(cartesian)) {
         const carto = Cartographic.fromCartesian(cartesian);
+        const clickLat = CesiumMath.toDegrees(carto.latitude);
+        const clickLon = CesiumMath.toDegrees(carto.longitude);
+
+        // Check if a news pin was clicked first
+        if (newsRendererRef.current && newsRendererRef.current.tryClick(clickLat, clickLon)) {
+          return; // News handled the click — don't fire globe click
+        }
 
         // Stop any space tracking and snap camera to Earth
         if (satManagerRef.current) {
@@ -318,8 +325,8 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
         onStopTrackingRef.current?.();
 
         onGlobeClickRef.current?.({
-          latitude: CesiumMath.toDegrees(carto.latitude),
-          longitude: CesiumMath.toDegrees(carto.longitude),
+          latitude: clickLat,
+          longitude: clickLon,
         });
       }
     }, ScreenSpaceEventType.LEFT_CLICK);
