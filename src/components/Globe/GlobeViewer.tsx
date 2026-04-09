@@ -188,18 +188,20 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       })
     );
 
-    // 4. Traffic flow heatmap (TomTom — requires API key)
+    // 4. Traffic congestion heatmap (TomTom — requires API key)
     const tomtomKey = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
     if (tomtomKey) {
       const trafficProvider = new UrlTemplateImageryProvider({
-        url: `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${tomtomKey}&thickness=6`,
+        url: `https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key=${tomtomKey}&thickness=10`,
         maximumLevel: 18,
         credit: "TomTom",
       });
       const tLayer = viewer.imageryLayers.addImageryProvider(trafficProvider);
-      tLayer.alpha = 0.7;
+      tLayer.alpha = 0.85;
       tLayer.show = false;
       trafficLayerRef.current = tLayer;
+    } else {
+      console.warn("[Traffic] NEXT_PUBLIC_TOMTOM_API_KEY not set — traffic layer disabled");
     }
 
     // ── News heatmap + pins ──────────────────────────────────────
