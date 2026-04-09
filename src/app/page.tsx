@@ -806,6 +806,22 @@ export default function Home() {
             ))}
           </div>
         )}
+        {layers.traffic && (
+          <div className="flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+            <span className="text-[8px] md:text-[10px] text-white/40">Traffic:</span>
+            {[
+              { color: "#00CC00", label: "Free Flow" },
+              { color: "#FFCC00", label: "Moderate" },
+              { color: "#FF6600", label: "Slow" },
+              { color: "#CC0000", label: "Heavy" },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1">
+                <span className="w-3 md:w-4 h-1 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <p className="text-[10px] md:text-xs text-white/50 font-medium tracking-wide">
           Created By — Whoastra Labs
         </p>
