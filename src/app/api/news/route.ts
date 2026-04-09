@@ -107,6 +107,60 @@ async function fetchAllCategories(): Promise<(Record<string, string> & { categor
   return allArticles;
 }
 
+// ── Major cities for fallback distribution ────────────────────
+const MAJOR_CITIES: Record<string, [number, number, string][]> = {
+  "United States": [
+    [38.90, -77.04, "Washington DC"], [40.71, -74.01, "New York"],
+    [34.05, -118.24, "Los Angeles"], [41.88, -87.63, "Chicago"],
+    [29.76, -95.37, "Houston"], [33.45, -112.07, "Phoenix"],
+    [37.77, -122.42, "San Francisco"], [47.61, -122.33, "Seattle"],
+    [25.76, -80.19, "Miami"], [42.36, -71.06, "Boston"],
+    [39.74, -104.99, "Denver"], [32.78, -96.80, "Dallas"],
+  ],
+  "United Kingdom": [
+    [51.51, -0.13, "London"], [53.48, -2.24, "Manchester"],
+    [55.95, -3.19, "Edinburgh"], [52.49, -1.89, "Birmingham"],
+  ],
+  "India": [
+    [28.61, 77.21, "New Delhi"], [19.08, 72.88, "Mumbai"],
+    [13.08, 80.27, "Chennai"], [22.57, 88.36, "Kolkata"],
+    [12.97, 77.59, "Bangalore"],
+  ],
+  "China": [
+    [39.90, 116.41, "Beijing"], [31.23, 121.47, "Shanghai"],
+    [23.13, 113.26, "Guangzhou"], [22.54, 114.06, "Shenzhen"],
+    [30.57, 104.07, "Chengdu"],
+  ],
+  "Germany": [
+    [52.52, 13.41, "Berlin"], [48.14, 11.58, "Munich"],
+    [50.11, 8.68, "Frankfurt"], [53.55, 9.99, "Hamburg"],
+  ],
+  "France": [
+    [48.86, 2.35, "Paris"], [43.30, 5.37, "Marseille"],
+    [45.76, 4.84, "Lyon"], [43.61, 1.44, "Toulouse"],
+  ],
+  "Japan": [
+    [35.68, 139.69, "Tokyo"], [34.69, 135.50, "Osaka"],
+    [35.01, 135.77, "Kyoto"], [43.06, 141.35, "Sapporo"],
+  ],
+  "Australia": [
+    [-33.87, 151.21, "Sydney"], [-37.81, 144.96, "Melbourne"],
+    [-27.47, 153.03, "Brisbane"], [-31.95, 115.86, "Perth"],
+  ],
+  "Canada": [
+    [45.42, -75.70, "Ottawa"], [43.65, -79.38, "Toronto"],
+    [49.28, -123.12, "Vancouver"], [45.50, -73.57, "Montreal"],
+  ],
+  "Brazil": [
+    [-15.79, -47.88, "Brasilia"], [-23.55, -46.63, "Sao Paulo"],
+    [-22.91, -43.17, "Rio de Janeiro"], [-12.97, -38.51, "Salvador"],
+  ],
+  "Russia": [
+    [55.76, 37.62, "Moscow"], [59.93, 30.32, "St Petersburg"],
+    [56.84, 60.60, "Yekaterinburg"], [55.03, 82.92, "Novosibirsk"],
+  ],
+};
+
 // ── Claude Geocoding ───────────────────────────────────────────
 async function geocodeWithClaude(
   articles: Record<string, string>[]
@@ -121,13 +175,26 @@ async function geocodeWithClaude(
     title: a.title,
     source: a.domain,
     sourcecountry: a.sourcecountry,
+    url: a.url,
   }));
 
   const response = await client.messages.create({
     model: "claude-3-5-haiku-20241022",
     max_tokens: 16000,
-    system:
-      "You are a precise geocoding assistant. Given a list of news articles with their titles, sources, and source countries, determine the most accurate latitude and longitude for where each story takes place. Use context from the headline to identify the specific city, region, or landmark — not just the country centroid. If the headline mentions a specific place (e.g. 'Strait of Hormuz', 'Paris', 'Capitol Hill'), use that location. If no specific location can be determined from the headline, use the capital city of the source country as a fallback. Respond ONLY with a valid JSON array, no markdown, no explanation.",
+    system: `You are a precise geocoding assistant. For each news article, return the latitude and longitude of the SPECIFIC CITY where the story takes place.
+
+RULES:
+1. NEVER return a country centroid or geographic center. Always pick a real city.
+2. If the headline mentions a specific place (Paris, Wall Street, Capitol Hill, Silicon Valley), use that exact location.
+3. If the headline mentions a country but no city, use the CAPITAL CITY of that country.
+4. If the source domain hints at a city (chicagotribune.com = Chicago, bbc.co.uk = London, nytimes.com = New York), use that city.
+5. For US news about politics/government with no city mentioned, use Washington DC (38.90, -77.04).
+6. For US news about finance/stocks with no city, use New York (40.71, -74.01).
+7. For US news about tech with no city, use San Francisco (37.77, -122.42).
+8. For other generic US news, distribute across: New York, Los Angeles, Chicago, Houston, Miami, Seattle.
+9. NEVER place multiple articles at the exact same coordinates. Vary by at least 0.1 degrees.
+
+Respond ONLY with a valid JSON array: [{"index":0,"lat":40.71,"lng":-74.01,"location":"New York"}]`,
     messages: [{ role: "user", content: JSON.stringify(batch) }],
   });
 
@@ -137,17 +204,33 @@ async function geocodeWithClaude(
   return parsed;
 }
 
-// ── Fallback: country centroid geocoding ────────────────────────
-function geocodeWithCountryCentroids(
+// ── Fallback: distribute across major cities ──────────────────
+function geocodeWithCityDistribution(
   articles: Record<string, string>[]
 ): { index: number; lat: number; lng: number; location: string }[] {
+  const countryCounters: Record<string, number> = {};
+
   return articles.map((a, i) => {
-    const coords = getCountryCoords(a.sourcecountry || "");
+    const country = a.sourcecountry || "";
+    const cities = MAJOR_CITIES[country];
+
+    if (cities && cities.length > 0) {
+      const idx = (countryCounters[country] || 0) % cities.length;
+      countryCounters[country] = idx + 1;
+      const [lat, lng, name] = cities[idx];
+      // Add small random offset to prevent exact overlap
+      const jitter = () => (Math.random() - 0.5) * 0.2;
+      return { index: i, lat: lat + jitter(), lng: lng + jitter(), location: name };
+    }
+
+    // Fallback to country centroid with jitter
+    const coords = getCountryCoords(country);
+    const jitter = () => (Math.random() - 0.5) * 2;
     return {
       index: i,
-      lat: coords ? coords[0] : 0,
-      lng: coords ? coords[1] : 0,
-      location: a.sourcecountry || "Unknown",
+      lat: coords ? coords[0] + jitter() : 0,
+      lng: coords ? coords[1] + jitter() : 0,
+      location: country || "Unknown",
     };
   });
 }
@@ -200,7 +283,7 @@ export async function GET() {
       console.log(`[News API] Claude geocoded ${coords.length} articles`);
     } catch (e) {
       console.warn("[News API] Claude geocoding failed, using country centroids:", e);
-      coords = geocodeWithCountryCentroids(articles);
+      coords = geocodeWithCityDistribution(articles);
     }
 
     const result = mergeArticlesWithCoords(articles, coords);
