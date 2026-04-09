@@ -232,7 +232,7 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
 
     // ── Satellite layer ─────────────────────────────────────────
     const satManager = new SatelliteManager(viewer, {
-      maxVisibleSats: isMobile ? 100 : 800,
+      maxVisibleSats: isMobile ? 500 : 5000,
     });
     satManagerRef.current = satManager;
     satManager.init(); // async — runs in background

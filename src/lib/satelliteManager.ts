@@ -49,7 +49,7 @@ const TYPE_COLORS: Record<SatelliteType, Color> = {
   weather: Color.fromCssColorString("#ffd43b"),
 };
 
-const DEFAULT_MAX_VISIBLE_SATS = 800;
+const DEFAULT_MAX_VISIBLE_SATS = 5000;
 
 interface SatelliteManagerOptions {
   maxVisibleSats?: number;
@@ -418,12 +418,13 @@ export class SatelliteManager {
 
         const color = TYPE_COLORS[sat.type] ?? Color.WHITE;
 
+        const size = sat.type === "station" ? 8 : sat.type === "starlink" ? 3 : 5;
         this.points.add({
           position: cartesian,
-          pixelSize: sat.type === "station" ? 8 : 5,
+          pixelSize: size,
           color: color.withAlpha(fadeFactor),
-          outlineColor: Color.WHITE.withAlpha(fadeFactor * 0.5),
-          outlineWidth: 1,
+          outlineColor: sat.type === "starlink" ? Color.TRANSPARENT : Color.WHITE.withAlpha(fadeFactor * 0.5),
+          outlineWidth: sat.type === "starlink" ? 0 : 1,
           show: true,
           scaleByDistance: new NearFarScalar(1e6, 1.2, 3e7, 0.5),
         });
