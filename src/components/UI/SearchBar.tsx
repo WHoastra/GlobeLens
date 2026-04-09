@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, X } from "lucide-react";
-import type { NominatimResult, SearchWeatherData } from "@/types";
+import type { NominatimResult, SearchWeatherData, NewsArticle } from "@/types";
 import WeatherCard from "./WeatherCard";
 
 interface SearchBarProps {
@@ -11,9 +11,11 @@ interface SearchBarProps {
   weather: SearchWeatherData | null;
   weatherLoading: boolean;
   onWeatherClose: () => void;
+  nearbyNews?: NewsArticle[];
+  onNewsClick?: (article: NewsArticle) => void;
 }
 
-export default function SearchBar({ onSelect, onClear, weather, weatherLoading, onWeatherClose }: SearchBarProps) {
+export default function SearchBar({ onSelect, onClear, weather, weatherLoading, onWeatherClose, nearbyNews, onNewsClick }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -148,7 +150,7 @@ export default function SearchBar({ onSelect, onClear, weather, weatherLoading, 
       )}
       {weather && !weatherLoading && (
         <div className="mt-2">
-          <WeatherCard weather={weather} onClose={onWeatherClose} />
+          <WeatherCard weather={weather} onClose={onWeatherClose} nearbyNews={nearbyNews} onNewsClick={onNewsClick} />
         </div>
       )}
     </div>

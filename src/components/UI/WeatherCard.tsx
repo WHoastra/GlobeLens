@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { X, Droplets, Wind } from "lucide-react";
-import type { SearchWeatherData } from "@/types";
+import type { SearchWeatherData, NewsArticle } from "@/types";
+import { NEWS_CATEGORIES } from "@/types";
 
 const WEATHER_ICONS: Record<number, string> = {
   0: "☀️", 1: "⛅", 2: "⛅", 3: "☁️",
@@ -28,9 +29,11 @@ function getDayName(dateStr: string, index: number): string {
 interface WeatherCardProps {
   weather: SearchWeatherData;
   onClose: () => void;
+  nearbyNews?: NewsArticle[];
+  onNewsClick?: (article: NewsArticle) => void;
 }
 
-export default function WeatherCard({ weather, onClose }: WeatherCardProps) {
+export default function WeatherCard({ weather, onClose, nearbyNews, onNewsClick }: WeatherCardProps) {
   const [unit, setUnit] = useState<"F" | "C">("F");
   const temp = (c: number) => Math.round(unit === "F" ? cToF(c) : c);
 
@@ -90,6 +93,34 @@ export default function WeatherCard({ weather, onClose }: WeatherCardProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Nearby news */}
+      {nearbyNews && nearbyNews.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Nearby News</p>
+          <div className="flex flex-col gap-1.5 max-h-[200px] overflow-y-auto">
+            {nearbyNews.map((article) => {
+              const cat = NEWS_CATEGORIES.find((c) => c.key === article.category);
+              return (
+                <button
+                  key={article.id}
+                  onClick={() => onNewsClick?.(article)}
+                  className="flex items-start gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left w-full"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full mt-1 shrink-0"
+                    style={{ backgroundColor: cat?.color || "#fff" }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs text-white/80 leading-tight line-clamp-2">{article.title}</p>
+                    <p className="text-[10px] text-white/40 mt-0.5">{article.source}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

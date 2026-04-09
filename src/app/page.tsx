@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
@@ -242,6 +242,16 @@ export default function Home() {
 
   const hasActiveData = layers.weather || layers.webcams || layers.news;
 
+  // Filter news articles near the searched location (within ~500km / ~5 degrees)
+  const nearbySearchNews = useMemo(() => {
+    if (!searchWeather || newsArticles.length === 0) return [];
+    const lat = searchWeather.latitude;
+    const lon = searchWeather.longitude;
+    return newsArticles
+      .filter((a) => Math.abs(a.latitude - lat) < 5 && Math.abs(a.longitude - lon) < 5)
+      .slice(0, 10);
+  }, [searchWeather, newsArticles]);
+
   return (
     <main className="relative w-screen h-screen">
       {/* 3D Globe — fills entire viewport */}
@@ -303,6 +313,8 @@ export default function Home() {
         weather={searchWeather}
         weatherLoading={searchWeatherLoading}
         onWeatherClose={handleSearchClear}
+        nearbyNews={nearbySearchNews}
+        onNewsClick={handleNewsClick}
       />
 
       {/* Logo / Branding */}
