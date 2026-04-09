@@ -312,9 +312,12 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
         const clickLat = CesiumMath.toDegrees(carto.latitude);
         const clickLon = CesiumMath.toDegrees(carto.longitude);
 
-        // Check if a news pin was clicked first
+        // Check if a news or webcam pin was clicked first
         if (newsRendererRef.current && newsRendererRef.current.tryClick(clickLat, clickLon)) {
-          return; // News handled the click — don't fire globe click
+          return;
+        }
+        if (webcamRendererRef.current && webcamRendererRef.current.tryClick(clickLat, clickLon)) {
+          return;
         }
 
         // Stop any space tracking and snap camera to Earth

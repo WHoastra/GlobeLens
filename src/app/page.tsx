@@ -148,6 +148,8 @@ export default function Home() {
 
   const handleGlobeClick = useCallback((event: GlobeClickEvent) => {
     setSelectedLocation({ latitude: event.latitude, longitude: event.longitude });
+    setSelectedArticle(null);
+    setSelectedWebcam(null);
     setLiveFeed(null);
     clearSearchPinRef.current?.();
     setSearchWeather(null);
@@ -220,7 +222,7 @@ export default function Home() {
           publishDate: a.seendate ? `${a.seendate.slice(0,4)}-${a.seendate.slice(4,6)}-${a.seendate.slice(6,8)}` : "",
           latitude: a.lat,
           longitude: a.lng,
-          category: (a.category || "world") as NewsCategory,
+          category: (["conflict","finance","tech","politics","world"].includes(a.category) ? a.category : "world") as NewsCategory,
           location: a.location,
         }));
         setNewsArticles(articles);
@@ -238,7 +240,7 @@ export default function Home() {
     if (isMobile) setBottomSheet("news");
   }, [isMobile]);
 
-  const hasActiveData = layers.weather;
+  const hasActiveData = layers.weather || layers.webcams || layers.news;
 
   return (
     <main className="relative w-screen h-screen">
@@ -323,6 +325,10 @@ export default function Home() {
           </button>
         </div>
 
+        {/* Mobile hamburger menu backdrop */}
+        {menuOpen && (
+          <div className="fixed inset-0 z-[-1] md:hidden" onClick={() => setMenuOpen(false)} />
+        )}
         {/* Mobile hamburger menu — all controls */}
         {menuOpen && (
           <div className="mt-2 p-3 rounded-xl bg-black/80 backdrop-blur-xl border border-white/10 flex flex-col gap-1.5 md:hidden max-h-[70vh] overflow-y-auto w-56">
@@ -650,7 +656,7 @@ export default function Home() {
               onClick={() => setSelectedWebcam(null)}
               className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0 ml-2"
             >
-              <span className="text-white/50 text-xs">X</span>
+              <X size={14} className="text-white/50" />
             </button>
           </div>
           {selectedWebcam.playerUrl ? (
@@ -709,7 +715,7 @@ export default function Home() {
               onClick={() => setLiveFeed(null)}
               className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0 ml-2"
             >
-              <span className="text-white/50 text-xs">X</span>
+              <X size={14} className="text-white/50" />
             </button>
           </div>
 

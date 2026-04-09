@@ -10,7 +10,6 @@ import {
   Cartesian2,
   Entity,
   PolylineGlowMaterialProperty,
-  CallbackProperty,
 } from "cesium";
 import { NewsArticle, NewsCategory } from "@/types";
 
@@ -26,13 +25,19 @@ const CLUSTER_RADIUS_DEG = 5;
 const BEAM_HEIGHT = 500_000;
 const TOP_BEAM_COUNT = 10;
 
-const CATEGORY_COLORS: Record<NewsCategory, Color> = {
-  conflict: Color.fromCssColorString("#FF3333"),
-  finance: Color.fromCssColorString("#33CC33"),
-  tech: Color.fromCssColorString("#4A90D9"),
-  politics: Color.fromCssColorString("#FFD700"),
-  world: Color.WHITE,
-};
+let _categoryColors: Record<NewsCategory, Color> | null = null;
+function getCategoryColors(): Record<NewsCategory, Color> {
+  if (!_categoryColors) {
+    _categoryColors = {
+      conflict: Color.fromCssColorString("#FF3333"),
+      finance: Color.fromCssColorString("#33CC33"),
+      tech: Color.fromCssColorString("#4A90D9"),
+      politics: Color.fromCssColorString("#FFD700"),
+      world: Color.WHITE,
+    };
+  }
+  return _categoryColors;
+}
 
 const CATEGORY_LABELS: Record<NewsCategory, string> = {
   conflict: "WAR",
@@ -138,7 +143,7 @@ export class NewsRenderer {
 
     for (let i = 0; i < this.clusters.length; i++) {
       const cluster = this.clusters[i];
-      const color = CATEGORY_COLORS[cluster.category] || Color.WHITE;
+      const color = getCategoryColors()[cluster.category] || Color.WHITE;
       const isTopStory = i < this.topBeamCountLimit;
 
       if (isTopStory) {
@@ -169,18 +174,14 @@ export class NewsRenderer {
     const categoryLabel = CATEGORY_LABELS[cluster.category] || "NEWS";
 
     const beamColor = color.withAlpha(rank < 3 ? 0.9 : 0.7);
-    const startTime = Date.now();
 
-    // Beam polyline
+    // Beam polyline (static glow for performance)
     const beamEntity = this.viewer.entities.add({
       polyline: {
         positions: [groundPos, topPos],
         width: rank < 3 ? 12 : 8,
         material: new PolylineGlowMaterialProperty({
-          glowPower: new CallbackProperty(() => {
-            const elapsed = (Date.now() - startTime) / 1000;
-            return 0.2 + Math.sin(elapsed * 2) * 0.1;
-          }, false) as unknown as number,
+          glowPower: 0.25,
           color: beamColor,
         }),
       },
@@ -261,7 +262,7 @@ export class NewsRenderer {
 
     const label = cluster.count > 1
       ? `${cluster.count} stories`
-      : cluster.articles[0]?.title.substring(0, 40) + "...";
+      : (cluster.articles[0]?.title?.substring(0, 40) ?? "News") + "...";
 
     this.pinLabels.add({
       position: Cartesian3.fromDegrees(cluster.longitude, cluster.latitude, 120000),
@@ -274,7 +275,7 @@ export class NewsRenderer {
       horizontalOrigin: HorizontalOrigin.LEFT,
       verticalOrigin: VerticalOrigin.CENTER,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pixelOffset: { x: 12, y: 0 } as any,
+      pixelOffset: new Cartesian2(12, 0),
       scaleByDistance: new NearFarScalar(1e6, 1.0, 2e7, 0.4),
       disableDepthTestDistance: Number.POSITIVE_INFINITY,
       show: true,

@@ -42,12 +42,18 @@ import {
 } from "./artemis";
 import type { ArtemisViewMode } from "@/types";
 
-const TYPE_COLORS: Record<SatelliteType, Color> = {
-  station: Color.WHITE,
-  starlink: Color.fromCssColorString("#4dabf7"),
-  gps: Color.fromCssColorString("#69db7c"),
-  weather: Color.fromCssColorString("#ffd43b"),
-};
+let TYPE_COLORS: Record<SatelliteType, Color> | null = null;
+function getTypeColors(): Record<SatelliteType, Color> {
+  if (!TYPE_COLORS) {
+    TYPE_COLORS = {
+      station: Color.WHITE,
+      starlink: Color.fromCssColorString("#4dabf7"),
+      gps: Color.fromCssColorString("#69db7c"),
+      weather: Color.fromCssColorString("#ffd43b"),
+    };
+  }
+  return TYPE_COLORS;
+}
 
 const DEFAULT_MAX_VISIBLE_SATS = 5000;
 
@@ -308,7 +314,7 @@ export class SatelliteManager {
           style: 2, // FILL_AND_OUTLINE
           horizontalOrigin: HorizontalOrigin.LEFT,
           verticalOrigin: VerticalOrigin.CENTER,
-          pixelOffset: { x: 14, y: 0 } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          pixelOffset: new Cartesian2(14, 0),
           show: true,
           scaleByDistance: new NearFarScalar(1e6, 1.0, 3e7, 0.5),
         });
@@ -361,7 +367,7 @@ export class SatelliteManager {
         style: 2,
         horizontalOrigin: HorizontalOrigin.LEFT,
         verticalOrigin: VerticalOrigin.CENTER,
-        pixelOffset: { x: 18, y: 0 } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        pixelOffset: new Cartesian2(18, 0),
         show: true,
         scaleByDistance: new NearFarScalar(1e7, 1.0, 5e8, 0.5),
       });
@@ -416,7 +422,7 @@ export class SatelliteManager {
           pos.altitude * 1000
         );
 
-        const color = TYPE_COLORS[sat.type] ?? Color.WHITE;
+        const color = getTypeColors()[sat.type] ?? Color.WHITE;
 
         const size = sat.type === "station" ? 8 : sat.type === "starlink" ? 3 : 5;
         this.points.add({
@@ -441,7 +447,7 @@ export class SatelliteManager {
       this.update();
 
       // Refresh ISS orbit line every 5 minutes
-    }, 2000);
+    }, 4000);
   }
 
   setVisible(visible: boolean) {

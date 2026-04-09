@@ -198,10 +198,17 @@ Respond ONLY with a valid JSON array: [{"index":0,"lat":40.71,"lng":-74.01,"loca
     messages: [{ role: "user", content: JSON.stringify(batch) }],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  const parsed = JSON.parse(text);
-  if (!Array.isArray(parsed)) throw new Error("Claude response is not an array");
-  return parsed;
+  let text = response.content[0].type === "text" ? response.content[0].text : "";
+  // Strip markdown code fences if Claude wraps the JSON
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) throw new Error("Claude response is not an array");
+    return parsed;
+  } catch {
+    console.error("[News API] Claude returned invalid JSON:", text.substring(0, 200));
+    throw new Error("Claude returned invalid JSON");
+  }
 }
 
 // ── Fallback: distribute across major cities ──────────────────

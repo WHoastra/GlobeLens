@@ -29,7 +29,7 @@ export interface SatellitePosition {
 }
 
 const CACHE_KEY = "globelens_tle_cache";
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
 
 /** Parse TLE text into satellite records */
 function parseTLE(tleText: string, type: SatelliteType): SatelliteData[] {

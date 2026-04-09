@@ -8,10 +8,6 @@ import {
   HorizontalOrigin,
   VerticalOrigin,
   NearFarScalar,
-  ScreenSpaceEventHandler,
-  ScreenSpaceEventType,
-  defined,
-  Cartographic,
   Math as CesiumMath,
 } from "cesium";
 import { Webcam } from "@/types";
@@ -28,7 +24,6 @@ export class WebcamRenderer {
   private pins: BillboardCollection | null = null;
   private labels: LabelCollection | null = null;
   private webcams: Webcam[] = [];
-  private handler: ScreenSpaceEventHandler | null = null;
   private onWebcamClick: ((webcam: Webcam) => void) | null = null;
   private visible = false;
 
@@ -124,44 +119,35 @@ export class WebcamRenderer {
     return canvas;
   }
 
-  enableClickHandler() {
-    if (this.handler || this.viewer.isDestroyed()) return;
+  /** Try to handle a click at the given lat/lon. Returns true if a webcam was found. */
+  tryClick(clickLat: number, clickLon: number): boolean {
+    if (!this.visible || this.webcams.length === 0) return false;
 
-    this.handler = new ScreenSpaceEventHandler(this.viewer.scene.canvas);
-    this.handler.setInputAction((movement: { position: Cartesian2 }) => {
-      if (!this.visible || this.webcams.length === 0) return;
+    const altitude = this.viewer.camera.positionCartographic.height;
+    const tolerance = Math.min(CLICK_TOLERANCE_DEG, Math.max(0.05, altitude / 1_000_000));
 
-      const pickedPos = this.viewer.camera.pickEllipsoid(
-        movement.position,
-        this.viewer.scene.globe.ellipsoid
+    let nearest: Webcam | null = null;
+    let nearestDist = Infinity;
+
+    for (const cam of this.webcams) {
+      const dist = Math.sqrt(
+        (cam.latitude - clickLat) ** 2 + (cam.longitude - clickLon) ** 2
       );
-      if (!defined(pickedPos)) return;
-
-      const carto = Cartographic.fromCartesian(pickedPos);
-      const clickLat = CesiumMath.toDegrees(carto.latitude);
-      const clickLon = CesiumMath.toDegrees(carto.longitude);
-
-      // Scale tolerance based on camera altitude for better UX
-      const altitude = this.viewer.camera.positionCartographic.height;
-      const tolerance = Math.min(CLICK_TOLERANCE_DEG, Math.max(0.05, altitude / 1_000_000));
-
-      let nearest: Webcam | null = null;
-      let nearestDist = Infinity;
-
-      for (const cam of this.webcams) {
-        const dist = Math.sqrt(
-          (cam.latitude - clickLat) ** 2 + (cam.longitude - clickLon) ** 2
-        );
-        if (dist < nearestDist && dist < tolerance) {
-          nearest = cam;
-          nearestDist = dist;
-        }
+      if (dist < nearestDist && dist < tolerance) {
+        nearest = cam;
+        nearestDist = dist;
       }
+    }
 
-      if (nearest && this.onWebcamClick) {
-        this.onWebcamClick(nearest);
-      }
-    }, ScreenSpaceEventType.LEFT_CLICK);
+    if (nearest && this.onWebcamClick) {
+      this.onWebcamClick(nearest);
+      return true;
+    }
+    return false;
+  }
+
+  enableClickHandler() {
+    // Click handling is now done via tryClick() from GlobeViewer's unified handler
   }
 
   setVisible(visible: boolean) {
@@ -182,7 +168,6 @@ export class WebcamRenderer {
   }
 
   destroy() {
-    if (this.handler) this.handler.destroy();
     if (this.pins && !this.viewer.isDestroyed()) {
       this.viewer.scene.primitives.remove(this.pins);
     }
@@ -191,7 +176,6 @@ export class WebcamRenderer {
     }
     this.pins = null;
     this.labels = null;
-    this.handler = null;
     this.webcams = [];
   }
 }

@@ -90,7 +90,7 @@ export default function SearchBar({ onSelect, onClear, weather, weatherLoading, 
 
   return (
     <div
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-[90%] md:w-[400px]"
+      className="absolute top-16 md:top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-20 md:w-[400px]"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Search input */}

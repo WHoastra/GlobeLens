@@ -100,10 +100,10 @@ export async function fetchWeatherWithForecast(
 
   const daily: DailyForecast[] = (data.daily?.time ?? []).map((date: string, i: number) => ({
     date,
-    weatherCode: data.daily.weather_code[i],
-    description: WMO_DESCRIPTIONS[data.daily.weather_code[i]] ?? "Unknown",
-    temperatureMax: data.daily.temperature_2m_max[i],
-    temperatureMin: data.daily.temperature_2m_min[i],
+    weatherCode: data.daily?.weather_code?.[i] ?? 0,
+    description: WMO_DESCRIPTIONS[data.daily?.weather_code?.[i] ?? 0] ?? "Unknown",
+    temperatureMax: data.daily?.temperature_2m_max?.[i] ?? 0,
+    temperatureMin: data.daily?.temperature_2m_min?.[i] ?? 0,
   }));
 
   return {
