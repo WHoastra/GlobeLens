@@ -260,7 +260,7 @@ export default function Home() {
         newsCategories={newsCategories}
         onNewsClick={(article) => handleNewsClick(article)}
         showWebcams={layers.webcams}
-        onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setLiveFeed(null); setSelectedArticle(null); if (isMobile) setBottomSheet("webcam"); }}
+        onWebcamClick={(webcam) => { setSelectedWebcam(webcam); setSelectedLocation(null); setLiveFeed(null); setSelectedArticle(null); if (isMobile) setBottomSheet("webcam"); }}
         artemisView={showArtemis ? artemisView : "none"}
         showArtemisActive={showArtemis}
         onCameraDistanceChange={setCameraDistanceKm}
