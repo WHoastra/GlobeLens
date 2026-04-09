@@ -21,6 +21,7 @@ import {
   Transforms,
   Matrix4,
   Moon,
+  VerticalOrigin,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { SatelliteManager, ISSInfo, ArtemisInfo } from "@/lib/satelliteManager";
@@ -63,6 +64,9 @@ interface GlobeViewerProps {
   onCameraDistanceChange?: (distanceKm: number) => void;
   onFlyToEarth?: React.MutableRefObject<(() => void) | null>;
   onFlyToMoon?: React.MutableRefObject<(() => void) | null>;
+  onFlyToLocation?: React.MutableRefObject<((lat: number, lon: number, alt: number) => void) | null>;
+  onSetSearchPin?: React.MutableRefObject<((lat: number, lon: number, label: string) => void) | null>;
+  onClearSearchPin?: React.MutableRefObject<(() => void) | null>;
   onISSEntityClick?: () => void;
   onArtemisEntityClick?: () => void;
   onISSInfo?: (info: ISSInfo | null) => void;
@@ -72,7 +76,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -576,6 +580,9 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
   }, [showArtemisActive]);
 
   // Expose fly-to methods via refs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const searchPinRef = useRef<any>(null);
+
   useEffect(() => {
     if (onFlyToEarth) {
       onFlyToEarth.current = () => satManagerRef.current?.flyToEarth();
@@ -583,11 +590,67 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     if (onFlyToMoon) {
       onFlyToMoon.current = () => satManagerRef.current?.flyToMoon();
     }
+    if (onFlyToLocation) {
+      onFlyToLocation.current = (lat: number, lon: number, alt: number) => {
+        const viewer = viewerRef.current;
+        if (!viewer || viewer.isDestroyed()) return;
+        viewer.camera.flyTo({
+          destination: Cartesian3.fromDegrees(lon, lat, alt),
+          duration: 2,
+        });
+      };
+    }
+    if (onSetSearchPin) {
+      onSetSearchPin.current = (lat: number, lon: number, label: string) => {
+        const viewer = viewerRef.current;
+        if (!viewer || viewer.isDestroyed()) return;
+        // Remove old pin
+        if (searchPinRef.current) viewer.entities.remove(searchPinRef.current);
+        searchPinRef.current = viewer.entities.add({
+          position: Cartesian3.fromDegrees(lon, lat, 0),
+          point: {
+            pixelSize: 12,
+            color: Color.fromCssColorString("#FF4444"),
+            outlineColor: Color.WHITE,
+            outlineWidth: 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: label.length > 40 ? label.substring(0, 40) + "..." : label,
+            font: "bold 13px sans-serif",
+            fillColor: Color.WHITE,
+            outlineColor: Color.BLACK,
+            outlineWidth: 3,
+            style: 2,
+            verticalOrigin: VerticalOrigin.BOTTOM,
+            pixelOffset: new Cartesian2(0, -12),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            backgroundColor: Color.fromCssColorString("rgba(0,0,0,0.6)"),
+            showBackground: true,
+            backgroundPadding: new Cartesian2(6, 4),
+          },
+        });
+      };
+    }
+    if (onClearSearchPin) {
+      onClearSearchPin.current = () => {
+        const viewer = viewerRef.current;
+        if (!viewer || viewer.isDestroyed()) return;
+        if (searchPinRef.current) {
+          viewer.entities.remove(searchPinRef.current);
+          searchPinRef.current = null;
+        }
+      };
+    }
     return () => {
       if (onFlyToEarth) onFlyToEarth.current = null;
       if (onFlyToMoon) onFlyToMoon.current = null;
+      if (onFlyToLocation) onFlyToLocation.current = null;
+      if (onSetSearchPin) onSetSearchPin.current = null;
+      if (onClearSearchPin) onClearSearchPin.current = null;
     };
-  }, [onFlyToEarth, onFlyToMoon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin]);
 
   // Toggle ISS orbit line
   useEffect(() => {

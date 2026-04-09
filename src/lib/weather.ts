@@ -1,9 +1,9 @@
-import { WeatherData } from "@/types";
+import { WeatherData, SearchWeatherData, DailyForecast } from "@/types";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1";
 
 /** WMO weather code → human description */
-const WMO_DESCRIPTIONS: Record<number, string> = {
+export const WMO_DESCRIPTIONS: Record<number, string> = {
   0: "Clear sky",
   1: "Mainly clear",
   2: "Partly cloudy",
@@ -67,5 +67,57 @@ export async function fetchWeather(
     weatherCode: cw.weathercode,
     description: WMO_DESCRIPTIONS[cw.weathercode] ?? "Unknown",
     isDay: cw.is_day === 1,
+  };
+}
+
+/**
+ * Fetch current weather + 7-day daily forecast.
+ */
+export async function fetchWeatherWithForecast(
+  latitude: number,
+  longitude: number,
+  locationName = "Unknown"
+): Promise<SearchWeatherData> {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    current_weather: "true",
+    hourly: "relative_humidity_2m,apparent_temperature",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min",
+    forecast_days: "7",
+    timezone: "auto",
+  });
+
+  const res = await fetch(`${OPEN_METEO_BASE}/forecast?${params}`);
+  if (!res.ok) throw new Error(`Open-Meteo API error: ${res.status}`);
+
+  const data = await res.json();
+  const cw = data.current_weather;
+
+  const currentHour = new Date(cw.time).getHours();
+  const humidity = data.hourly?.relative_humidity_2m?.[currentHour] ?? 0;
+  const feelsLike = data.hourly?.apparent_temperature?.[currentHour] ?? cw.temperature;
+
+  const daily: DailyForecast[] = (data.daily?.time ?? []).map((date: string, i: number) => ({
+    date,
+    weatherCode: data.daily.weather_code[i],
+    description: WMO_DESCRIPTIONS[data.daily.weather_code[i]] ?? "Unknown",
+    temperatureMax: data.daily.temperature_2m_max[i],
+    temperatureMin: data.daily.temperature_2m_min[i],
+  }));
+
+  return {
+    latitude,
+    longitude,
+    locationName,
+    temperature: cw.temperature,
+    feelsLike,
+    humidity,
+    windSpeed: cw.windspeed,
+    windDirection: cw.winddirection,
+    weatherCode: cw.weathercode,
+    description: WMO_DESCRIPTIONS[cw.weathercode] ?? "Unknown",
+    isDay: cw.is_day === 1,
+    daily,
   };
 }

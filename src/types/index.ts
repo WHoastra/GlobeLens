@@ -38,6 +38,27 @@ export interface WeatherData {
   isDay: boolean;
 }
 
+export interface DailyForecast {
+  date: string;
+  weatherCode: number;
+  description: string;
+  temperatureMax: number;
+  temperatureMin: number;
+}
+
+export interface SearchWeatherData extends WeatherData {
+  daily: DailyForecast[];
+}
+
+export interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  class: string;
+}
+
 /* ── Webcams ───────────────────────────────────────── */
 export interface Webcam {
   id: string;

@@ -4,12 +4,12 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay } from "@/components/UI";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory } from "@/types";
+import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory, NominatimResult, SearchWeatherData } from "@/types";
 import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 
@@ -97,9 +97,53 @@ export default function Home() {
   const [, setCameraDistanceKm] = useState(0);
   const flyToEarthRef = useRef<(() => void) | null>(null);
   const flyToMoonRef = useRef<(() => void) | null>(null);
+  const flyToLocationRef = useRef<((lat: number, lon: number, alt: number) => void) | null>(null);
+  const setSearchPinRef = useRef<((lat: number, lon: number, label: string) => void) | null>(null);
+  const clearSearchPinRef = useRef<(() => void) | null>(null);
+
+  // Search state
+  const [searchWeather, setSearchWeather] = useState<SearchWeatherData | null>(null);
+  const [searchWeatherLoading, setSearchWeatherLoading] = useState(false);
 
   const handleToggle = useCallback((layer: LayerType) => {
     setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  }, []);
+
+  const handleSearchSelect = useCallback((result: NominatimResult) => {
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+    const name = result.display_name.split(",").slice(0, 2).join(",").trim();
+
+    // Altitude based on type
+    const t = result.type;
+    const alt = (t === "country" || t === "state") ? 5_000_000
+      : (t === "city" || t === "town") ? 2_000_000
+      : (t === "village" || t === "hamlet" || t === "suburb") ? 500_000
+      : 100_000;
+
+    flyToLocationRef.current?.(lat, lon, alt);
+    setSearchPinRef.current?.(lat, lon, name);
+
+    // Clear other panels
+    setSelectedArticle(null);
+    setSelectedLocation(null);
+    setSelectedWebcam(null);
+    setLiveFeed(null);
+
+    // Fetch weather with 7-day forecast
+    setSearchWeatherLoading(true);
+    setSearchWeather(null);
+    fetch(`/api/weather?lat=${lat}&lon=${lon}&forecast=7&name=${encodeURIComponent(name)}`)
+      .then((res) => res.json())
+      .then((data) => setSearchWeather(data))
+      .catch(() => {})
+      .finally(() => setSearchWeatherLoading(false));
+  }, []);
+
+  const handleSearchClear = useCallback(() => {
+    clearSearchPinRef.current?.();
+    setSearchWeather(null);
+    setSearchWeatherLoading(false);
   }, []);
 
   const handleGlobeClick = useCallback((event: GlobeClickEvent) => {
@@ -107,6 +151,8 @@ export default function Home() {
     setSelectedArticle(null);
     setSelectedWebcam(null);
     setLiveFeed(null);
+    clearSearchPinRef.current?.();
+    setSearchWeather(null);
     if (isMobile) setBottomSheet("info");
   }, [isMobile]);
 
@@ -221,6 +267,9 @@ export default function Home() {
         onCameraDistanceChange={setCameraDistanceKm}
         onFlyToEarth={flyToEarthRef}
         onFlyToMoon={flyToMoonRef}
+        onFlyToLocation={flyToLocationRef}
+        onSetSearchPin={setSearchPinRef}
+        onClearSearchPin={clearSearchPinRef}
         onISSEntityClick={() => { setLiveFeed({ type: "iss", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); if (isMobile) setBottomSheet("livefeed"); }}
         onArtemisEntityClick={() => { setLiveFeed({ type: "artemis", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); if (isMobile) setBottomSheet("livefeed"); }}
         onISSInfo={showISS ? handleISSInfo : undefined}
@@ -245,6 +294,15 @@ export default function Home() {
           if (next.has(type)) next.delete(type); else next.add(type);
           return next;
         })}
+      />
+
+      {/* Search bar */}
+      <SearchBar
+        onSelect={handleSearchSelect}
+        onClear={handleSearchClear}
+        weather={searchWeather}
+        weatherLoading={searchWeatherLoading}
+        onWeatherClose={handleSearchClear}
       />
 
       {/* Logo / Branding */}
