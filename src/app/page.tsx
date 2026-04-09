@@ -149,7 +149,6 @@ export default function Home() {
   const handleGlobeClick = useCallback((event: GlobeClickEvent) => {
     setSelectedLocation({ latitude: event.latitude, longitude: event.longitude });
     setSelectedArticle(null);
-    setSelectedWebcam(null);
     setLiveFeed(null);
     clearSearchPinRef.current?.();
     setSearchWeather(null);
