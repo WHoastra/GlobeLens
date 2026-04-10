@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Cartesian3,
   Cartesian2,
@@ -46,6 +46,10 @@ interface GlobeViewerProps {
   onStopTracking?: () => void;
   activeWeatherLayers?: WeatherTileLayerKey[];
   showTraffic?: boolean;
+  showRadar?: boolean;
+  onRadarTime?: (time: string) => void;
+  radarPlaying?: boolean;
+  onRadarPlayToggle?: () => void;
   showSatellites?: boolean;
   satelliteTypes?: Set<string>;
   trackISS?: boolean;
@@ -76,7 +80,7 @@ interface GlobeViewerProps {
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showRadar = false, onRadarTime, radarPlaying = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -435,6 +439,89 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       trafficLayerRef.current.show = showTraffic;
     }
   }, [showTraffic]);
+
+  // Radar layer (RainViewer — free, no API key)
+  const radarLayerRef = useRef<ImageryLayer | null>(null);
+  const radarFramesRef = useRef<number[]>([]);
+  const radarFrameIndexRef = useRef(0);
+  const radarAnimRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onRadarTimeRef = useRef(onRadarTime);
+  onRadarTimeRef.current = onRadarTime;
+
+  const showRadarFrame = useCallback((timestamp: number) => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    // Remove previous radar layer
+    if (radarLayerRef.current) {
+      viewer.imageryLayers.remove(radarLayerRef.current, true);
+      radarLayerRef.current = null;
+    }
+
+    const provider = new UrlTemplateImageryProvider({
+      url: `https://tilecache.rainviewer.com/v2/radar/${timestamp}/{z}/{x}/{y}/2/1_1.png`,
+      maximumLevel: 12,
+      credit: "RainViewer",
+    });
+    const layer = viewer.imageryLayers.addImageryProvider(provider);
+    layer.alpha = 0.6;
+    radarLayerRef.current = layer;
+
+    // Update time label
+    const date = new Date(timestamp * 1000);
+    onRadarTimeRef.current?.(date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (!showRadar) {
+      if (radarLayerRef.current) {
+        viewer.imageryLayers.remove(radarLayerRef.current, true);
+        radarLayerRef.current = null;
+      }
+      if (radarAnimRef.current) {
+        clearInterval(radarAnimRef.current);
+        radarAnimRef.current = null;
+      }
+      radarFramesRef.current = [];
+      return;
+    }
+
+    // Fetch radar frames from RainViewer
+    fetch("https://api.rainviewer.com/public/weather-maps.json")
+      .then((res) => res.json())
+      .then((data) => {
+        const frames: number[] = (data.radar?.past ?? []).map((f: { time: number }) => f.time);
+        if (frames.length === 0) return;
+        radarFramesRef.current = frames;
+        radarFrameIndexRef.current = frames.length - 1;
+        showRadarFrame(frames[frames.length - 1]);
+      })
+      .catch((err) => console.warn("[Radar] Failed to fetch frames:", err));
+  }, [showRadar, showRadarFrame]);
+
+  // Radar animation play/pause
+  useEffect(() => {
+    if (radarAnimRef.current) {
+      clearInterval(radarAnimRef.current);
+      radarAnimRef.current = null;
+    }
+
+    if (radarPlaying && radarFramesRef.current.length > 0) {
+      radarAnimRef.current = setInterval(() => {
+        const frames = radarFramesRef.current;
+        if (frames.length === 0) return;
+        radarFrameIndexRef.current = (radarFrameIndexRef.current + 1) % frames.length;
+        showRadarFrame(frames[radarFrameIndexRef.current]);
+      }, 700);
+    }
+
+    return () => {
+      if (radarAnimRef.current) clearInterval(radarAnimRef.current);
+    };
+  }, [radarPlaying, showRadarFrame]);
 
   // Toggle news layer visibility
   useEffect(() => {

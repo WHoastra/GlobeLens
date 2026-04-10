@@ -47,6 +47,9 @@ export default function Home() {
 
   // Weather state
   const [activeWeatherLayers, setActiveWeatherLayers] = useState<WeatherTileLayerKey[]>(["clouds_new"]);
+  const [showRadar, setShowRadar] = useState(false);
+  const [radarTime, setRadarTime] = useState<string>("");
+  const [radarPlaying, setRadarPlaying] = useState(false);
 
   const handleWeatherLayerToggle = useCallback((key: WeatherTileLayerKey) => {
     setActiveWeatherLayers((prev) =>
@@ -261,6 +264,10 @@ export default function Home() {
         isMobile={isMobile}
         activeWeatherLayers={layers.weather ? activeWeatherLayers : []}
         showTraffic={layers.traffic}
+        showRadar={showRadar && layers.weather}
+        onRadarTime={setRadarTime}
+        radarPlaying={radarPlaying}
+        onRadarPlayToggle={() => setRadarPlaying((p) => !p)}
         showSatellites={layers.satellites}
         satelliteTypes={satelliteTypes}
         trackISS={trackISS}
@@ -292,6 +299,8 @@ export default function Home() {
         onToggle={handleToggle}
         activeWeatherLayers={activeWeatherLayers}
         onWeatherLayerToggle={handleWeatherLayerToggle}
+        showRadar={showRadar}
+        onRadarToggle={() => setShowRadar((p) => !p)}
         newsCategories={newsCategories}
         onNewsCategoryToggle={(cat) => setNewsCategories((prev) => {
           const next = new Set<NewsCategory>(prev);
@@ -832,6 +841,20 @@ export default function Home() {
                 <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
               </div>
             ))}
+          </div>
+        )}
+        {showRadar && layers.weather && (
+          <div className="flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+            <button
+              onClick={() => setRadarPlaying((p) => !p)}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-xs"
+            >
+              {radarPlaying ? "⏸" : "▶"}
+            </button>
+            <span className="text-[9px] md:text-[10px] text-purple-300 font-medium">Radar</span>
+            {radarTime && (
+              <span className="text-[8px] md:text-[10px] text-white/50">{radarTime}</span>
+            )}
           </div>
         )}
         <p className="text-[10px] md:text-xs text-white/50 font-medium tracking-wide">

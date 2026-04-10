@@ -12,6 +12,8 @@ interface LayerToggleProps {
   onNewsCategoryToggle?: (cat: NewsCategory) => void;
   satelliteTypes?: Set<string>;
   onSatelliteTypeToggle?: (type: string) => void;
+  showRadar?: boolean;
+  onRadarToggle?: () => void;
 }
 
 const WEATHER_TILE_OPTIONS: { key: WeatherTileLayerKey; label: string; color: string }[] = [
@@ -73,7 +75,7 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
   },
 };
 
-export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle, satelliteTypes, onSatelliteTypeToggle }: LayerToggleProps) {
+export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle, satelliteTypes, onSatelliteTypeToggle, showRadar, onRadarToggle }: LayerToggleProps) {
   return (
     <div className="absolute z-10 hidden md:flex md:top-4 md:right-4 md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
@@ -159,6 +161,19 @@ export default function LayerToggle({ layers, onToggle, activeWeatherLayers = []
                   </button>
                 );
               })}
+              {onRadarToggle && (
+                <button
+                  onClick={onRadarToggle}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all border ${
+                    showRadar
+                      ? "bg-purple-400/20 border-purple-400/40 text-purple-300"
+                      : "bg-black/30 border-white/10 text-white/40 hover:text-white/60"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-purple-400 ${showRadar ? "opacity-100" : "opacity-40"}`} />
+                  Radar
+                </button>
+              )}
             </div>
           )}
 
