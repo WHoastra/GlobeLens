@@ -148,14 +148,37 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
       })
     );
 
-    // Camera zoom constraints
+    // Camera controls — enable zoom and rotation
     const controller = viewer.scene.screenSpaceCameraController;
+    controller.enableZoom = true;
+    controller.enableRotate = true;
+    controller.enableTilt = true;
+    controller.enableLook = true;
     controller.minimumZoomDistance = 10_000;      // 10km from surface
     controller.maximumZoomDistance = 20_000_000;   // 20,000km out
 
     // Start with a nice view of the Moon
     viewer.camera.setView({
       destination: Cartesian3.fromDegrees(20, 5, 5_000_000, MOON_ELLIPSOID),
+    });
+
+    // Auto-rotate the moon slowly
+    let userInteracting = false;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    const pauseRotation = () => {
+      userInteracting = true;
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { userInteracting = false; }, 3000);
+    };
+    const canvas = viewer.scene.canvas;
+    canvas.addEventListener("pointerdown", pauseRotation);
+    canvas.addEventListener("wheel", pauseRotation);
+
+    const removeRotateListener = viewer.clock.onTick.addEventListener(() => {
+      if (viewer.isDestroyed()) return;
+      if (!userInteracting) {
+        viewer.scene.camera.rotate(Cartesian3.UNIT_Z, 0.0005);
+      }
     });
 
     // Add lunar feature pins + labels
@@ -259,6 +282,9 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
     artemisLabelRef.current = aLabels;
 
     return () => {
+      removeRotateListener();
+      canvas.removeEventListener("pointerdown", pauseRotation);
+      canvas.removeEventListener("wheel", pauseRotation);
       if (!viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
       artemisPointsRef.current = null;
