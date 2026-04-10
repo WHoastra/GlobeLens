@@ -11,9 +11,11 @@ import {
   UrlTemplateImageryProvider,
   LabelCollection,
   BillboardCollection,
+  PointPrimitiveCollection,
   HorizontalOrigin,
   VerticalOrigin,
   NearFarScalar,
+  Cartesian2,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
@@ -24,15 +26,49 @@ if (typeof window !== "undefined") {
 
 const MOON_RADIUS = 1_737_400; // meters
 
-const LUNAR_FEATURES = [
-  { name: "Apollo 11 Landing Site", lat: 0.6744, lon: 23.473 },
-  { name: "Apollo 17 Landing Site", lat: 20.1908, lon: 30.7717 },
-  { name: "Copernicus Crater", lat: 9.62, lon: -20.08 },
-  { name: "Tycho Crater", lat: -43.31, lon: -11.36 },
-  { name: "South Pole (Artemis III)", lat: -89.9, lon: 0 },
-  { name: "Sea of Tranquility", lat: 8.5, lon: 31.4 },
-  { name: "Ocean of Storms", lat: -18.4, lon: -57.4 },
-  { name: "Sea of Serenity", lat: 28.0, lon: 17.5 },
+type LunarCategory = "apollo" | "mission" | "crater" | "maria";
+
+const CATEGORY_COLORS: Record<LunarCategory, string> = {
+  apollo: "#FFD700",
+  mission: "#00CED1",
+  crater: "#FFFFFF",
+  maria: "#87CEEB",
+};
+
+const LUNAR_FEATURES: { name: string; lat: number; lon: number; category: LunarCategory; desc?: string }[] = [
+  // Apollo Landing Sites
+  { name: "Apollo 11", lat: 0.6744, lon: 23.473, category: "apollo", desc: "1969 — First crewed landing" },
+  { name: "Apollo 12", lat: -3.0128, lon: -23.4219, category: "apollo", desc: "1969 — Ocean of Storms" },
+  { name: "Apollo 14", lat: -3.6453, lon: -17.4714, category: "apollo", desc: "1971 — Fra Mauro" },
+  { name: "Apollo 15", lat: 26.1322, lon: 3.6339, category: "apollo", desc: "1971 — First lunar rover" },
+  { name: "Apollo 16", lat: -8.9734, lon: 15.5011, category: "apollo", desc: "1972 — Descartes Highlands" },
+  { name: "Apollo 17", lat: 20.1908, lon: 30.7717, category: "apollo", desc: "1972 — Last crewed landing" },
+
+  // Other Mission Landing Sites
+  { name: "Luna 2", lat: 29.1, lon: 0.0, category: "mission", desc: "1959 — First Moon impact (USSR)" },
+  { name: "Luna 9", lat: 7.13, lon: -64.37, category: "mission", desc: "1966 — First soft landing (USSR)" },
+  { name: "Surveyor 1", lat: -2.47, lon: -43.34, category: "mission", desc: "1966 — First US soft landing" },
+  { name: "Chang'e 3", lat: 44.12, lon: -19.51, category: "mission", desc: "2013 — China's first lander" },
+  { name: "Chang'e 4", lat: -45.46, lon: 177.60, category: "mission", desc: "2019 — First far-side landing" },
+  { name: "Chandrayaan-3", lat: -69.37, lon: 32.35, category: "mission", desc: "2023 — India's first landing" },
+
+  // Craters & Geological Features
+  { name: "Copernicus", lat: 9.62, lon: -20.08, category: "crater", desc: "93km crater, prominent rays" },
+  { name: "Tycho", lat: -43.31, lon: -11.36, category: "crater", desc: "85km crater, bright ray system" },
+  { name: "Aristarchus", lat: 23.73, lon: -47.49, category: "crater", desc: "Brightest large crater" },
+  { name: "Kepler", lat: 8.12, lon: -38.01, category: "crater", desc: "31km crater with bright rays" },
+  { name: "Shackleton", lat: -89.67, lon: 0.0, category: "crater", desc: "South pole, possible ice deposits" },
+  { name: "Artemis III Target", lat: -89.45, lon: 0.5, category: "crater", desc: "NASA's planned landing site" },
+  { name: "Tsiolkovsky", lat: -21.2, lon: 128.97, category: "crater", desc: "Far side, dark lava floor" },
+  { name: "S. Pole-Aitken Basin", lat: -53.0, lon: 169.0, category: "crater", desc: "Largest impact structure, 2500km" },
+
+  // Maria (Seas)
+  { name: "Sea of Tranquility", lat: 8.5, lon: 31.4, category: "maria" },
+  { name: "Sea of Serenity", lat: 28.0, lon: 17.5, category: "maria" },
+  { name: "Ocean of Storms", lat: -18.4, lon: -57.4, category: "maria" },
+  { name: "Sea of Crises", lat: 17.0, lon: 59.1, category: "maria" },
+  { name: "Sea of Rains", lat: 32.8, lon: -15.6, category: "maria" },
+  { name: "Sea of Clouds", lat: -23.0, lon: -9.5, category: "maria" },
 ];
 
 interface MoonViewerProps {
@@ -117,23 +153,50 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
       destination: Cartesian3.fromDegrees(20, 5, 5_000_000, MOON_ELLIPSOID),
     });
 
-    // Add lunar feature labels
+    // Add lunar feature pins + labels
+    const pins = viewer.scene.primitives.add(
+      new PointPrimitiveCollection()
+    ) as PointPrimitiveCollection;
+
     const labels = viewer.scene.primitives.add(
       new LabelCollection()
     ) as LabelCollection;
 
     for (const f of LUNAR_FEATURES) {
+      const color = Color.fromCssColorString(CATEGORY_COLORS[f.category]);
+      const isLanding = f.category === "apollo" || f.category === "mission";
+      const pinSize = isLanding ? 10 : 6;
+
+      // Colored pin
+      pins.add({
+        position: Cartesian3.fromDegrees(f.lon, f.lat, 500, MOON_ELLIPSOID),
+        pixelSize: pinSize,
+        color: color,
+        outlineColor: Color.WHITE,
+        outlineWidth: isLanding ? 2 : 1,
+        scaleByDistance: new NearFarScalar(1e4, 1.5, 3e6, 0.5),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        show: true,
+      });
+
+      // Label with description
+      const labelText = f.desc ? `${f.name}\n${f.desc}` : f.name;
       labels.add({
         position: Cartesian3.fromDegrees(f.lon, f.lat, 2000, MOON_ELLIPSOID),
-        text: f.name,
-        font: "bold 12px sans-serif",
-        fillColor: Color.WHITE,
+        text: labelText,
+        font: isLanding ? "bold 12px sans-serif" : "11px sans-serif",
+        fillColor: color,
         outlineColor: Color.BLACK,
         outlineWidth: 3,
         style: 2,
-        horizontalOrigin: HorizontalOrigin.CENTER,
-        verticalOrigin: VerticalOrigin.BOTTOM,
-        scaleByDistance: new NearFarScalar(1e4, 1.0, 3e6, 0.3),
+        horizontalOrigin: HorizontalOrigin.LEFT,
+        verticalOrigin: VerticalOrigin.CENTER,
+        pixelOffset: new Cartesian2(8, 0),
+        scaleByDistance: new NearFarScalar(1e4, 1.0, 3e6, 0.25),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        backgroundColor: Color.fromCssColorString("rgba(0,0,0,0.5)"),
+        showBackground: isLanding,
+        backgroundPadding: new Cartesian2(4, 2),
         show: true,
       });
     }

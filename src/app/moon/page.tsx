@@ -105,8 +105,21 @@ export default function MoonPage() {
         </div>
       )}
 
-      {/* Attribution */}
-      <div className="absolute bottom-2 right-2 z-10">
+      {/* Moon landmark legend + Attribution */}
+      <div className="absolute bottom-2 right-3 z-10 flex flex-col items-end gap-1">
+        <div className="flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+          {[
+            { color: "#FFD700", label: "Apollo" },
+            { color: "#00CED1", label: "Missions" },
+            { color: "#FFFFFF", label: "Craters" },
+            { color: "#87CEEB", label: "Maria" },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1">
+              <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
+            </div>
+          ))}
+        </div>
         <p className="text-[10px] text-white/30 tracking-wide">
           Created By — Whoastra Labs
         </p>
