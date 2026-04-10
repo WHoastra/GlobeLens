@@ -148,6 +148,11 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
       })
     );
 
+    // Camera zoom constraints
+    const controller = viewer.scene.screenSpaceCameraController;
+    controller.minimumZoomDistance = 10_000;      // 10km from surface
+    controller.maximumZoomDistance = 20_000_000;   // 20,000km out
+
     // Start with a nice view of the Moon
     viewer.camera.setView({
       destination: Cartesian3.fromDegrees(20, 5, 5_000_000, MOON_ELLIPSOID),
@@ -165,7 +170,7 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
     for (const f of LUNAR_FEATURES) {
       const color = Color.fromCssColorString(CATEGORY_COLORS[f.category]);
       const isLanding = f.category === "apollo" || f.category === "mission";
-      const pinSize = isLanding ? 10 : 6;
+      const pinSize = isLanding ? 12 : 8;
 
       // Colored pin
       pins.add({
@@ -173,30 +178,30 @@ export default function MoonViewer({ artemisDistanceKm, className }: MoonViewerP
         pixelSize: pinSize,
         color: color,
         outlineColor: Color.WHITE,
-        outlineWidth: isLanding ? 2 : 1,
-        scaleByDistance: new NearFarScalar(1e4, 1.5, 3e6, 0.5),
+        outlineWidth: 2,
+        scaleByDistance: new NearFarScalar(5e4, 2.0, 5e6, 0.6),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
         show: true,
       });
 
-      // Label with description
-      const labelText = f.desc ? `${f.name}\n${f.desc}` : f.name;
+      // Label — bright white text on dark background for readability
+      const labelText = f.desc ? `${f.name} — ${f.desc}` : f.name;
       labels.add({
         position: Cartesian3.fromDegrees(f.lon, f.lat, 2000, MOON_ELLIPSOID),
         text: labelText,
-        font: isLanding ? "bold 12px sans-serif" : "11px sans-serif",
-        fillColor: color,
+        font: isLanding ? "bold 14px sans-serif" : "bold 13px sans-serif",
+        fillColor: Color.WHITE,
         outlineColor: Color.BLACK,
-        outlineWidth: 3,
+        outlineWidth: 4,
         style: 2,
         horizontalOrigin: HorizontalOrigin.LEFT,
         verticalOrigin: VerticalOrigin.CENTER,
-        pixelOffset: new Cartesian2(8, 0),
-        scaleByDistance: new NearFarScalar(1e4, 1.0, 3e6, 0.25),
+        pixelOffset: new Cartesian2(12, 0),
+        scaleByDistance: new NearFarScalar(5e4, 1.2, 5e6, 0.4),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        backgroundColor: Color.fromCssColorString("rgba(0,0,0,0.5)"),
-        showBackground: isLanding,
-        backgroundPadding: new Cartesian2(4, 2),
+        backgroundColor: Color.fromCssColorString("rgba(0,0,0,0.7)"),
+        showBackground: true,
+        backgroundPadding: new Cartesian2(6, 3),
         show: true,
       });
     }
