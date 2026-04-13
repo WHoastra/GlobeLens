@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer } from "@/components/UI";
+import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio, BarChart3 } from "lucide-react";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer, StatsPanel } from "@/components/UI";
 import WeatherPanel from "@/components/Panels/WeatherPanel";
 import ISSPanelWrapper from "@/components/Panels/ISSPanel";
 import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory, NominatimResult, SearchWeatherData } from "@/types";
 import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
+import type { CountryStat } from "@/types/stats";
 
 // CesiumJS must be loaded client-side only (no SSR)
 const GlobeViewer = dynamic(
@@ -33,7 +34,7 @@ const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/m3kR2KK8TEs?autoplay=1";
 export default function Home() {
   const { isMobile } = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | null>(null);
+  const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | "stats" | null>(null);
 
   const [layers, setLayers] = useState<LayerState>({
     news: true,
@@ -41,6 +42,7 @@ export default function Home() {
     webcams: false,
     traffic: false,
     satellites: false,
+    stats: false,
   });
 
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -70,6 +72,13 @@ export default function Home() {
   const [newsPanelOpen, setNewsPanelOpen] = useState(false);
   const [newsPanelCategory, setNewsPanelCategory] = useState<NewsCategory | "all">("all");
   const [satelliteTypes, setSatelliteTypes] = useState<Set<string>>(() => new Set(["starlink", "gps", "weather", "station"]));
+
+  // Stats state
+  const [statsData, setStatsData] = useState<CountryStat[] | undefined>(undefined);
+  const [statsColorScale, setStatsColorScale] = useState<[string, string] | undefined>(undefined);
+  const [selectedStatsCountry, setSelectedStatsCountry] = useState<string | null>(null);
+  const [statsPanelOpen, setStatsPanelOpen] = useState(false);
+  const flyToCountryRef = useRef<((iso3: string) => void) | null>(null);
 
   // Webcam state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -251,6 +260,33 @@ export default function Home() {
     return () => controller.abort();
   }, [layers.news]);
 
+  // Open/close stats panel when layer toggles
+  useEffect(() => {
+    if (layers.stats) {
+      setStatsPanelOpen(true);
+      if (isMobile) setBottomSheet("stats");
+    } else {
+      setStatsPanelOpen(false);
+      setStatsData(undefined);
+      setStatsColorScale(undefined);
+      setSelectedStatsCountry(null);
+    }
+  }, [layers.stats, isMobile]);
+
+  const handleStatsDataChange = useCallback((data: CountryStat[], colorScale: [string, string]) => {
+    setStatsData(data);
+    setStatsColorScale(colorScale);
+  }, []);
+
+  const handleCountrySelect = useCallback((iso3: string) => {
+    setSelectedStatsCountry(iso3);
+  }, []);
+
+  const handleCountryClickFromGlobe = useCallback((iso3: string) => {
+    setSelectedStatsCountry(iso3);
+    if (isMobile) setBottomSheet("stats");
+  }, [isMobile]);
+
   const handleNewsClick = useCallback((article: NewsArticle) => {
     setSelectedArticle(article);
     setSelectedLocation(null);
@@ -307,6 +343,12 @@ export default function Home() {
         onArtemisEntityClick={() => { setLiveFeed({ type: "artemis", issView: "earth" }); setSelectedWebcam(null); setSelectedArticle(null); if (isMobile) setBottomSheet("livefeed"); }}
         onISSInfo={showISS ? handleISSInfo : undefined}
         onArtemisInfo={showArtemis ? handleArtemisInfo : undefined}
+        showStats={layers.stats}
+        statsData={statsData}
+        statsColorScale={statsColorScale}
+        highlightedCountry={selectedStatsCountry}
+        onCountryClick={handleCountryClickFromGlobe}
+        onFlyToCountry={flyToCountryRef}
       />
 
       {/* Layer toggle buttons */}
@@ -376,6 +418,7 @@ export default function Home() {
               { label: "Webcams", icon: Camera, active: layers.webcams, onClick: () => handleToggle("webcams" as LayerType) },
               { label: "Traffic", icon: Car, active: layers.traffic, onClick: () => handleToggle("traffic" as LayerType) },
               { label: "Satellites", icon: Satellite, active: layers.satellites, onClick: () => handleToggle("satellites" as LayerType) },
+              { label: "Stats", icon: BarChart3, active: layers.stats, onClick: () => handleToggle("stats" as LayerType) },
             ]).map(({ label, icon: Icon, active, onClick }) => (
               <button
                 key={label}
@@ -794,6 +837,26 @@ export default function Home() {
         />
       )}
 
+      {/* Stats panel — desktop only */}
+      {!isMobile && layers.stats && statsPanelOpen && (
+        <StatsPanel
+          onClose={() => { setStatsPanelOpen(false); setLayers(prev => ({ ...prev, stats: false })); }}
+          selectedCountryCode={selectedStatsCountry}
+          onStatsDataChange={handleStatsDataChange}
+          onCountrySelect={handleCountrySelect}
+          flyToCountry={flyToCountryRef.current}
+        />
+      )}
+
+      {/* Stats color legend — bottom left when stats active */}
+      {layers.stats && statsColorScale && statsData && statsData.length > 0 && (
+        <div className="absolute bottom-20 left-4 z-10 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+          <span className="text-[9px] text-white/40">Low</span>
+          <div className="w-24 h-2 rounded-full" style={{ background: `linear-gradient(to right, ${statsColorScale[0]}, ${statsColorScale[1]})` }} />
+          <span className="text-[9px] text-white/40">High</span>
+        </div>
+      )}
+
       {/* Mobile bottom sheet */}
       {isMobile && bottomSheet && (
         <div className="fixed inset-0 z-30 md:hidden">
@@ -924,6 +987,16 @@ export default function Home() {
                     setTrackISS((prev) => !prev);
                     if (!trackISS) setTrackArtemis(false);
                   }}
+                />
+              )}
+              {bottomSheet === "stats" && layers.stats && (
+                <StatsPanel
+                  inline
+                  onClose={() => { setStatsPanelOpen(false); setLayers(prev => ({ ...prev, stats: false })); setBottomSheet(null); }}
+                  selectedCountryCode={selectedStatsCountry}
+                  onStatsDataChange={handleStatsDataChange}
+                  onCountrySelect={handleCountrySelect}
+                  flyToCountry={flyToCountryRef.current}
                 />
               )}
             </div>

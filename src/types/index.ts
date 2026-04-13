@@ -122,7 +122,7 @@ export const SATELLITE_CATEGORIES: { key: string; label: string; color: string }
 export type ArtemisViewMode = "none" | "earth-orbit" | "lunar-transit" | "flyby-return";
 
 /* ── Layer Toggle ──────────────────────────────────── */
-export type LayerType = "news" | "weather" | "webcams" | "traffic" | "satellites";
+export type LayerType = "news" | "weather" | "webcams" | "traffic" | "satellites" | "stats";
 
 export interface LayerState {
   news: boolean;
@@ -130,4 +130,5 @@ export interface LayerState {
   webcams: boolean;
   traffic: boolean;
   satellites: boolean;
+  stats: boolean;
 }

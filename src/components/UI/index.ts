@@ -5,3 +5,4 @@ export { default as SearchBar } from "./SearchBar";
 export { default as WeatherCard } from "./WeatherCard";
 export { default as NewsFeedPanel } from "./NewsFeedPanel";
 export { default as LiveStreamPlayer } from "./LiveStreamPlayer";
+export { default as StatsPanel } from "./StatsPanel";

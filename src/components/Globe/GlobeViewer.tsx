@@ -29,6 +29,8 @@ import { NewsRenderer } from "@/lib/newsRenderer";
 import { WebcamRenderer } from "@/lib/webcamRenderer";
 import { getMoonPositionECEF } from "@/lib/artemis";
 import { NewsArticle, NewsCategory, Webcam, WeatherTileLayerKey, ArtemisViewMode } from "@/types";
+import { StatsRenderer } from "@/lib/statsRenderer";
+import type { CountryStat } from "@/types/stats";
 
 // Configure Cesium static asset paths
 if (typeof window !== "undefined") {
@@ -75,12 +77,18 @@ interface GlobeViewerProps {
   onArtemisEntityClick?: () => void;
   onISSInfo?: (info: ISSInfo | null) => void;
   onArtemisInfo?: (info: ArtemisInfo | null) => void;
+  showStats?: boolean;
+  statsData?: CountryStat[];
+  statsColorScale?: [string, string];
+  highlightedCountry?: string | null;
+  onCountryClick?: (iso3: string) => void;
+  onFlyToCountry?: React.MutableRefObject<((iso3: string) => void) | null>;
   className?: string;
 }
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showRadar = false, onRadarTime, radarPlaying = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showRadar = false, onRadarTime, radarPlaying = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, showStats = false, statsData, statsColorScale, highlightedCountry, onCountryClick, onFlyToCountry, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -89,6 +97,11 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
   const satManagerRef = useRef<SatelliteManager | null>(null);
   const newsRendererRef = useRef<NewsRenderer | null>(null);
   const webcamRendererRef = useRef<WebcamRenderer | null>(null);
+  const statsRendererRef = useRef<StatsRenderer | null>(null);
+  const onCountryClickRef = useRef(onCountryClick);
+  onCountryClickRef.current = onCountryClick;
+  const showStatsRef = useRef(showStats);
+  showStatsRef.current = showStats;
   const onNewsClickRef = useRef(onNewsClick);
   onNewsClickRef.current = onNewsClick;
   const onWebcamClickRef = useRef(onWebcamClick);
@@ -236,6 +249,13 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     webcamRenderer.setVisible(false);
     webcamRendererRef.current = webcamRenderer;
 
+    // ── Stats choropleth ────────────────────────────────────────
+    const statsRenderer = new StatsRenderer(viewer);
+    statsRenderer.setOnCountryClick((iso3) => {
+      onCountryClickRef.current?.(iso3);
+    });
+    statsRendererRef.current = statsRenderer;
+
     // ── Satellite layer ─────────────────────────────────────────
     const satManager = new SatelliteManager(viewer, {
       maxVisibleSats: isMobile ? 500 : 5000,
@@ -295,8 +315,17 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     // ── Click handler ──────────────────────────────────────────
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: { position: Cartesian2 }) => {
-      // Try picking an entity/primitive first (ISS, Artemis)
+      // Try picking an entity/primitive first
       const picked = viewer.scene.pick(movement.position);
+
+      // Stats country click
+      if (defined(picked) && picked.id && showStatsRef.current && statsRendererRef.current) {
+        if (statsRendererRef.current.tryClick(picked.id)) {
+          return;
+        }
+      }
+
+      // ISS / Artemis entity click
       if (defined(picked) && satManagerRef.current) {
         const entity = satManagerRef.current.identifyPrimitive(picked);
         if (entity === "iss") {
@@ -387,6 +416,10 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       if (webcamRendererRef.current) {
         webcamRendererRef.current.destroy();
         webcamRendererRef.current = null;
+      }
+      if (statsRendererRef.current) {
+        statsRendererRef.current.destroy();
+        statsRendererRef.current = null;
       }
       if (!viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
@@ -595,6 +628,45 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     };
   }, [showWebcams]);
 
+  // Toggle stats choropleth — lazy-init GeoJSON on first show
+  useEffect(() => {
+    const renderer = statsRendererRef.current;
+    if (!renderer) return;
+
+    if (showStats) {
+      if (!renderer.isInitialized()) {
+        renderer.init().then(() => {
+          renderer.setVisible(true);
+          // Apply colors if data already available
+          if (statsData && statsColorScale) {
+            const dataMap = new Map(statsData.map(c => [c.countryCode, c.value]));
+            renderer.updateColors(dataMap, statsColorScale);
+          }
+        });
+      } else {
+        renderer.setVisible(true);
+      }
+    } else {
+      renderer.setVisible(false);
+      renderer.highlightCountry(null);
+    }
+  }, [showStats, statsData, statsColorScale]);
+
+  // Update stats colors when data changes
+  useEffect(() => {
+    const renderer = statsRendererRef.current;
+    if (!renderer || !renderer.isInitialized() || !showStats || !statsData || !statsColorScale) return;
+    const dataMap = new Map(statsData.map(c => [c.countryCode, c.value]));
+    renderer.updateColors(dataMap, statsColorScale);
+  }, [statsData, statsColorScale, showStats]);
+
+  // Highlight selected country on globe
+  useEffect(() => {
+    const renderer = statsRendererRef.current;
+    if (!renderer || !renderer.isInitialized()) return;
+    renderer.highlightCountry(highlightedCountry ?? null);
+  }, [highlightedCountry]);
+
   // Artemis deep-space camera constraints + distance reporting + Moon orbit
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -731,6 +803,11 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
         });
       };
     }
+    if (onFlyToCountry) {
+      onFlyToCountry.current = (iso3: string) => {
+        statsRendererRef.current?.flyToCountry(iso3);
+      };
+    }
     if (onClearSearchPin) {
       onClearSearchPin.current = () => {
         const viewer = viewerRef.current;
@@ -747,6 +824,7 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       if (onFlyToLocation) onFlyToLocation.current = null;
       if (onSetSearchPin) onSetSearchPin.current = null;
       if (onClearSearchPin) onClearSearchPin.current = null;
+      if (onFlyToCountry) onFlyToCountry.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin]);
