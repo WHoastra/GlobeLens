@@ -3,10 +3,11 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-const CACHE_DIR = join(process.cwd(), ".cache", "stats");
+// Use /tmp on serverless (Vercel), .cache locally
+const CACHE_DIR = join(process.env.VERCEL ? "/tmp" : process.cwd(), ".cache", "stats");
 
 const AGGREGATES = new Set([
-  "AFE","AFW","ARB","CEB","CSS","EAP","EAS","ECA","ECS","EMU","EUU",
+  "AFE","AFW","ARB","CEB","CSS","EAP","EAR","EAS","ECA","ECS","EMU","EUU",
   "FCS","HIC","HPC","IBD","IBT","IDA","IDB","IDX","INX","LAC","LCN",
   "LDC","LIC","LMC","LMY","LTE","MEA","MIC","MNA","NAC","OED","OSS",
   "PRE","PSS","PST","SAS","SSA","SSF","SST","TEA","TEC","TLA","TMN",
@@ -28,8 +29,10 @@ function readCache(indicator: string) {
 }
 
 function writeCache(indicator: string, data: unknown) {
-  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-  writeFileSync(getCachePath(indicator), JSON.stringify({ data, timestamp: Date.now() }));
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(getCachePath(indicator), JSON.stringify({ data, timestamp: Date.now() }));
+  } catch { /* ignore cache write failures on serverless */ }
 }
 
 export async function GET(req: NextRequest) {

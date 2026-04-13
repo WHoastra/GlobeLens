@@ -5,7 +5,7 @@ import { join } from "path";
 const GEOJSON_URL =
   "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
 
-const CACHE_DIR = join(process.cwd(), ".cache");
+const CACHE_DIR = join(process.env.VERCEL ? "/tmp" : process.cwd(), ".cache");
 const CACHE_FILE = join(CACHE_DIR, "countries-simplified.geojson");
 
 function readCache(): string | null {
@@ -17,8 +17,10 @@ function readCache(): string | null {
 }
 
 function writeCache(data: string) {
-  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
-  writeFileSync(CACHE_FILE, data);
+  try {
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, data);
+  } catch { /* ignore cache write failures on serverless */ }
 }
 
 export async function GET() {
