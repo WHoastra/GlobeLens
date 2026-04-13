@@ -7,8 +7,8 @@ import {
   ConstantProperty,
 } from "cesium";
 
-const GEOJSON_URL =
-  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
+// Served by /api/geojson — stripped to 3 properties per feature to avoid Cesium's property limit
+const GEOJSON_URL = "/api/geojson";
 
 export class StatsRenderer {
   private viewer: Viewer;
