@@ -71,7 +71,7 @@ export default function NewsFeedPanel({
   ];
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-[380px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl">
+    <div className="fixed top-0 right-0 h-screen w-[480px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">

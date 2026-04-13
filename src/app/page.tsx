@@ -729,7 +729,7 @@ export default function Home() {
 
       {/* News legend — positioned left of LIVE NEWS panel */}
       {!isMobile && layers.news && newsPanelOpen && newsArticles.length > 0 && (
-        <div className="absolute top-16 right-[396px] z-20 flex flex-col gap-1.5">
+        <div className="absolute top-16 right-[496px] z-20 flex flex-col gap-1.5">
           {NEWS_CATEGORIES.map(({ key, label, color }) => (
             <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
