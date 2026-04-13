@@ -330,8 +330,8 @@ export class SatelliteManager {
       }
     }
 
-    // Render Artemis II / Orion
-    const orion = showSpacecraft ? getOrionPosition(now) : null;
+    // Render Artemis II / Orion (only during active mission)
+    const orion = showSpacecraft && !isMissionComplete(now) ? getOrionPosition(now) : null;
     if (orion) {
       const artemisPulse = 1.0 + Math.sin(Date.now() / 250) * 0.2;
 
