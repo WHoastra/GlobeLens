@@ -4,3 +4,4 @@ export { default as LoadingOverlay } from "./LoadingOverlay";
 export { default as SearchBar } from "./SearchBar";
 export { default as WeatherCard } from "./WeatherCard";
 export { default as NewsFeedPanel } from "./NewsFeedPanel";
+export { default as LiveStreamPlayer } from "./LiveStreamPlayer";

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { NewsArticle, NewsCategory } from "@/types";
 import { NEWS_CATEGORIES } from "@/types";
+import LiveStreamPlayer from "./LiveStreamPlayer";
 
 function timeAgo(dateStr: string): string {
   if (!dateStr) return "";
@@ -193,6 +194,9 @@ export default function NewsFeedPanel({
           })
         )}
       </div>
+
+      {/* Live News Streams */}
+      <LiveStreamPlayer />
     </div>
   );
 }

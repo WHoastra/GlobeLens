@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel } from "@/components/UI";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer } from "@/components/UI";
 import WeatherPanel from "@/components/Panels/WeatherPanel";
 import ISSPanelWrapper from "@/components/Panels/ISSPanel";
 import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
@@ -835,40 +835,45 @@ export default function Home() {
                   {layers.weather && weather && <WeatherContent weather={weather} loading={weatherLoading} error={weatherError} />}
                 </div>
               )}
-              {bottomSheet === "news" && selectedArticle && (
+              {bottomSheet === "news" && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }} />
-                    <span className="text-xs font-medium uppercase tracking-wide" style={{ color: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }}>
-                      {NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.label || selectedArticle.category}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-semibold text-white leading-snug">{selectedArticle.title}</h3>
-                  <div className="flex items-center gap-2 text-xs text-white/40">
-                    <span>{selectedArticle.source}</span>
-                    {selectedArticle.publishDate && (
-                      <>
-                        <span>·</span>
-                        <span>{selectedArticle.publishDate}</span>
-                      </>
-                    )}
-                  </div>
-                  {selectedArticle.image && (
-                    <img
-                      src={selectedArticle.image}
-                      alt=""
-                      className="w-full max-h-48 object-cover rounded-lg"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                  <LiveStreamPlayer />
+                  {selectedArticle && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }} />
+                        <span className="text-xs font-medium uppercase tracking-wide" style={{ color: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }}>
+                          {NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.label || selectedArticle.category}
+                        </span>
+                      </div>
+                      <h3 className="text-base font-semibold text-white leading-snug">{selectedArticle.title}</h3>
+                      <div className="flex items-center gap-2 text-xs text-white/40">
+                        <span>{selectedArticle.source}</span>
+                        {selectedArticle.publishDate && (
+                          <>
+                            <span>·</span>
+                            <span>{selectedArticle.publishDate}</span>
+                          </>
+                        )}
+                      </div>
+                      {selectedArticle.image && (
+                        <img
+                          src={selectedArticle.image}
+                          alt=""
+                          className="w-full max-h-48 object-cover rounded-lg"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
+                      <a
+                        href={selectedArticle.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center w-full min-h-[48px] px-4 py-3 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-300 text-sm font-semibold hover:bg-blue-500/30 transition-colors"
+                      >
+                        Read Full Article →
+                      </a>
+                    </>
                   )}
-                  <a
-                    href={selectedArticle.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-full min-h-[48px] px-4 py-3 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-300 text-sm font-semibold hover:bg-blue-500/30 transition-colors"
-                  >
-                    Read Full Article →
-                  </a>
                 </div>
               )}
               {bottomSheet === "webcam" && selectedWebcam && (
