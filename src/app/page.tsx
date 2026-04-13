@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel } from "@/components/UI";
-import WeatherPanel from "@/components/Layers/WeatherPanel";
-import ISSPanel from "@/components/Layers/ISSPanel";
-import ArtemisPanel from "@/components/Layers/ArtemisPanel";
+import NewsPanel from "@/components/Panels/NewsPanel";
+import WeatherPanel from "@/components/Panels/WeatherPanel";
+import ISSPanelWrapper from "@/components/Panels/ISSPanel";
+import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
+import WeatherContent from "@/components/Layers/WeatherPanel";
+import ISSContent from "@/components/Layers/ISSPanel";
+import ArtemisContent from "@/components/Layers/ArtemisPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory, NominatimResult, SearchWeatherData } from "@/types";
 import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
@@ -524,89 +528,35 @@ export default function Home() {
         <div className="hidden md:flex absolute bottom-4 left-4 z-10 w-72 flex-col gap-3 max-h-[80vh] overflow-y-auto">
           {/* Artemis II Panel */}
           {showArtemis && (
-            <div className="rounded-xl border border-orange-400/20 bg-black/60 backdrop-blur-xl text-white shadow-2xl">
-              <div className="flex items-center justify-between p-4">
-                <button
-                  onClick={() => setArtemisExpanded((p) => !p)}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-                  <h3 className="text-sm font-semibold text-orange-300">Artemis II — Orion</h3>
-                  <span className="text-white/30 text-xs">{artemisExpanded ? "▼" : "▶"}</span>
-                </button>
-                <div className="flex gap-1">
-                  {(["earth-orbit", "lunar-transit", "flyby-return"] as const).map((view) => {
-                    const labels = { "earth-orbit": "Earth", "lunar-transit": "Transit", "flyby-return": "Flyby" } as const;
-                    const isActive = artemisView === view;
-                    return (
-                      <button
-                        key={view}
-                        onClick={() => setArtemisView(isActive ? "none" : view)}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          isActive
-                            ? "border-orange-400/40 text-orange-300 bg-orange-400/10"
-                            : "border-white/10 text-white/30 hover:text-white/50"
-                        }`}
-                      >
-                        {labels[view]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {artemisExpanded && (
-                <div className="px-4 pb-4">
-                  <ArtemisPanel
-                    info={artemisInfo}
-                    isTracking={trackArtemis}
-                    onTrackToggle={() => {
-                      setTrackArtemis((prev) => !prev);
-                      if (!trackArtemis) setTrackISS(false);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <ArtemisPanelWrapper
+              artemisInfo={artemisInfo}
+              expanded={artemisExpanded}
+              onToggleExpand={() => setArtemisExpanded((p) => !p)}
+              artemisView={artemisView}
+              onViewChange={(view) => setArtemisView(view)}
+              trackArtemis={trackArtemis}
+              onTrackToggle={() => {
+                setTrackArtemis((prev) => !prev);
+                if (!trackArtemis) setTrackISS(false);
+              }}
+            />
           )}
 
           {/* ISS Panel */}
           {showISS && (
-            <div className="rounded-xl border border-yellow-400/20 bg-black/60 backdrop-blur-xl text-white shadow-2xl">
-              <div className="flex items-center justify-between p-4">
-                <button
-                  onClick={() => setIssExpanded((p) => !p)}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                  <h3 className="text-sm font-semibold text-yellow-300">International Space Station</h3>
-                  <span className="text-white/30 text-xs">{issExpanded ? "▼" : "▶"}</span>
-                </button>
-                <button
-                  onClick={() => setShowISSOrbit((p) => !p)}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                    showISSOrbit
-                      ? "border-yellow-400/40 text-yellow-300 bg-yellow-400/10"
-                      : "border-white/10 text-white/30 hover:text-white/50"
-                  }`}
-                  title="Toggle orbit line"
-                >
-                  Orbit
-                </button>
-              </div>
-              {issExpanded && (
-                <div className="px-4 pb-4">
-                  <ISSPanel
-                    info={issInfo}
-                    loading={issLoading}
-                    isTracking={trackISS}
-                    onTrackToggle={() => {
-                      setTrackISS((prev) => !prev);
-                      if (!trackISS) setTrackArtemis(false);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <ISSPanelWrapper
+              issInfo={issInfo}
+              issLoading={issLoading}
+              expanded={issExpanded}
+              onToggleExpand={() => setIssExpanded((p) => !p)}
+              showISSOrbit={showISSOrbit}
+              onOrbitToggle={() => setShowISSOrbit((p) => !p)}
+              trackISS={trackISS}
+              onTrackToggle={() => {
+                setTrackISS((prev) => !prev);
+                if (!trackISS) setTrackArtemis(false);
+              }}
+            />
           )}
         </div>
       )}
@@ -618,64 +568,22 @@ export default function Home() {
           longitude={selectedLocation.longitude}
           onClose={() => setSelectedLocation(null)}
         >
-          <div className="space-y-4">
-            {layers.weather && (
-              <div>
-                <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">Weather</h4>
-                <WeatherPanel weather={weather} loading={weatherLoading} error={weatherError} />
-              </div>
-            )}
-            {!hasActiveData && (
-              <p className="text-sm text-white/40">Enable a layer to see data for this location.</p>
-            )}
-          </div>
+          <WeatherPanel
+            weather={weather}
+            loading={weatherLoading}
+            error={weatherError}
+            showLayer={layers.weather}
+            hasActiveData={hasActiveData}
+          />
         </InfoPanel>
       )}
 
       {/* News article panel (desktop only) */}
       {!isMobile && selectedArticle && (
-        <div className="absolute bottom-4 left-80 z-10 w-80 rounded-xl border border-red-400/20 bg-black/70 backdrop-blur-xl text-white shadow-2xl p-4">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }} />
-              <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.color || "#fff" }}>
-                {NEWS_CATEGORIES.find((c) => c.key === selectedArticle.category)?.label || selectedArticle.category}
-              </span>
-            </div>
-            <button
-              onClick={() => setSelectedArticle(null)}
-              className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0 ml-auto"
-            >
-              <X size={14} className="text-white/50" />
-            </button>
-          </div>
-          <h3 className="text-sm font-semibold leading-snug mb-2">{selectedArticle.title}</h3>
-          <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
-            <span>{selectedArticle.source}</span>
-            {selectedArticle.publishDate && (
-              <>
-                <span>·</span>
-                <span>{selectedArticle.publishDate}</span>
-              </>
-            )}
-          </div>
-          {selectedArticle.image && (
-            <img
-              src={selectedArticle.image}
-              alt=""
-              className="w-full h-32 object-cover rounded-lg mb-3"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-          )}
-          <a
-            href={selectedArticle.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center w-full py-2 rounded-lg bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-medium hover:bg-blue-500/25 transition-colors"
-          >
-            Read Full Article →
-          </a>
-        </div>
+        <NewsPanel
+          article={selectedArticle}
+          onClose={() => setSelectedArticle(null)}
+        />
       )}
 
       {/* Webcam popup (desktop only) */}
@@ -931,7 +839,7 @@ export default function Home() {
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-white">Location Details</h3>
                   <p className="text-xs text-white/60">{selectedLocation.latitude.toFixed(4)}°N, {selectedLocation.longitude.toFixed(4)}°W</p>
-                  {layers.weather && weather && <WeatherPanel weather={weather} loading={weatherLoading} error={weatherError} />}
+                  {layers.weather && weather && <WeatherContent weather={weather} loading={weatherLoading} error={weatherError} />}
                 </div>
               )}
               {bottomSheet === "news" && selectedArticle && (
@@ -1000,7 +908,7 @@ export default function Home() {
                 </div>
               )}
               {bottomSheet === "artemis" && showArtemis && (
-                <ArtemisPanel
+                <ArtemisContent
                   info={artemisInfo}
                   isTracking={trackArtemis}
                   onTrackToggle={() => {
@@ -1010,7 +918,7 @@ export default function Home() {
                 />
               )}
               {bottomSheet === "iss" && showISS && (
-                <ISSPanel
+                <ISSContent
                   info={issInfo}
                   loading={issLoading}
                   isTracking={trackISS}
