@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar } from "@/components/UI";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel } from "@/components/UI";
 import WeatherPanel from "@/components/Layers/WeatherPanel";
 import ISSPanel from "@/components/Layers/ISSPanel";
 import ArtemisPanel from "@/components/Layers/ArtemisPanel";
@@ -64,6 +64,8 @@ export default function Home() {
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [newsCategories, setNewsCategories] = useState<Set<NewsCategory>>(() => new Set<NewsCategory>(["conflict", "finance", "tech", "politics", "world"]));
+  const [newsPanelOpen, setNewsPanelOpen] = useState(false);
+  const [newsPanelCategory, setNewsPanelCategory] = useState<NewsCategory | "all">("all");
   const [satelliteTypes, setSatelliteTypes] = useState<Set<string>>(() => new Set(["starlink", "gps", "weather", "station"]));
 
   // Webcam state
@@ -110,6 +112,15 @@ export default function Home() {
 
   const handleToggle = useCallback((layer: LayerType) => {
     setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  }, []);
+
+  const handleNewsPanelCategory = useCallback((cat: NewsCategory | "all") => {
+    setNewsPanelCategory(cat);
+    if (cat === "all") {
+      setNewsCategories(new Set<NewsCategory>(["conflict", "finance", "tech", "politics", "world"]));
+    } else {
+      setNewsCategories(new Set<NewsCategory>([cat]));
+    }
   }, []);
 
   const handleSearchSelect = useCallback((result: NominatimResult) => {
@@ -204,8 +215,10 @@ export default function Home() {
   useEffect(() => {
     if (!layers.news) {
       setNewsArticles([]);
+      setNewsPanelOpen(false);
       return;
     }
+    setNewsPanelOpen(true);
 
     const controller = new AbortController();
     fetch("/api/news", { signal: controller.signal })
@@ -861,6 +874,24 @@ export default function Home() {
           Created By — Whoastra Labs
         </p>
       </div>
+
+      {/* Live News Feed Panel — desktop only */}
+      {!isMobile && layers.news && newsPanelOpen && newsArticles.length > 0 && (
+        <NewsFeedPanel
+          articles={newsArticles}
+          activeCategory={newsPanelCategory}
+          onCategoryChange={handleNewsPanelCategory}
+          onArticleClick={(article) => {
+            setSelectedArticle(article);
+            setSelectedLocation(null);
+            setSelectedWebcam(null);
+            setLiveFeed(null);
+          }}
+          onClose={() => setNewsPanelOpen(false)}
+          selectedArticleId={selectedArticle?.id ?? null}
+          flyToLocation={flyToLocationRef.current}
+        />
+      )}
 
       {/* Mobile bottom sheet */}
       {isMobile && bottomSheet && (
