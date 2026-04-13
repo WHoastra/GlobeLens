@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio } from "lucide-react";
 import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel } from "@/components/UI";
-import NewsPanel from "@/components/Panels/NewsPanel";
 import WeatherPanel from "@/components/Panels/WeatherPanel";
 import ISSPanelWrapper from "@/components/Panels/ISSPanel";
 import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
@@ -578,14 +577,6 @@ export default function Home() {
         </InfoPanel>
       )}
 
-      {/* News article panel (desktop only) */}
-      {!isMobile && selectedArticle && (
-        <NewsPanel
-          article={selectedArticle}
-          onClose={() => setSelectedArticle(null)}
-        />
-      )}
-
       {/* Webcam popup (desktop only) */}
       {!isMobile && selectedWebcam && (
         <div className="absolute bottom-4 left-80 z-20 w-96 rounded-xl border border-cyan-400/20 bg-black/80 backdrop-blur-xl text-white shadow-2xl overflow-hidden">
@@ -736,18 +727,20 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Attribution + News legend — bottom right */}
+      {/* News legend — positioned left of LIVE NEWS panel */}
+      {!isMobile && layers.news && newsPanelOpen && newsArticles.length > 0 && (
+        <div className="absolute top-16 right-[396px] z-20 flex flex-col gap-1.5">
+          {NEWS_CATEGORIES.map(({ key, label, color }) => (
+            <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-[10px] text-white/60">{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Attribution + legends — bottom right */}
       <div className="absolute bottom-2 right-3 z-10 flex flex-col items-end gap-1">
-        {layers.news && newsArticles.length > 0 && (
-          <div className="flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
-            {NEWS_CATEGORIES.map(({ key, label, color }) => (
-              <div key={key} className="flex items-center gap-1">
-                <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ backgroundColor: color }} />
-                <span className="text-[8px] md:text-[10px] text-white/60">{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
         {layers.traffic && (
           <div className="flex gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
             <span className="text-[8px] md:text-[10px] text-white/40">Traffic:</span>
