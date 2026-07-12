@@ -25,10 +25,9 @@ GlobeLens is an open-source interactive 3D globe that surfaces real-time world n
 | Layer | Technology |
 |---|---|
 | Framework | [Next.js 14](https://nextjs.org/) (App Router, TypeScript) |
-| 3D Globe | [CesiumJS](https://cesium.com/) + [Resium](https://resium.reearth.io/) |
+| 3D Globe | [CesiumJS](https://cesium.com/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) |
 | Icons | [Lucide React](https://lucide.dev/) |
-| Database / Cache | [Supabase](https://supabase.com/) |
 | News (free) | [GDELT Project](https://www.gdeltproject.org/) |
 | News (key) | [World News API](https://worldnewsapi.com/) |
 | Weather (free) | [Open-Meteo](https://open-meteo.com/) |
@@ -70,11 +69,9 @@ Open [http://localhost:3000](http://localhost:3000) to see the globe.
 |---|---|---|
 | `WORLD_NEWS_API_KEY` | Optional | [worldnewsapi.com](https://worldnewsapi.com/) |
 | `ANTHROPIC_API_KEY` | Optional | [console.anthropic.com](https://console.anthropic.com/) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Optional | [supabase.com](https://supabase.com/) |
-| `SUPABASE_SERVICE_KEY` | Optional | [supabase.com](https://supabase.com/) |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Optional | [mapbox.com](https://account.mapbox.com/) |
 | `WINDY_WEBCAMS_API_KEY` | Optional | [api.windy.com](https://api.windy.com/) |
-| `TOMTOM_API_KEY` | Optional | [developer.tomtom.com](https://developer.tomtom.com/) |
+| `NEXT_PUBLIC_TOMTOM_API_KEY` | Optional | [developer.tomtom.com](https://developer.tomtom.com/) |
 
 > **Note:** GDELT and Open-Meteo are completely free and require no API keys. The globe renders with default Cesium imagery even without a Mapbox token.
 
@@ -103,11 +100,9 @@ src/
 │   ├── Layers/           # News, Weather, Webcam, Traffic panels
 │   └── UI/               # Shared UI (layer toggles, info panel, loading)
 ├── lib/
-│   ├── gdelt.ts          # GDELT API client (free, no key)
 │   ├── news.ts           # World News API client
 │   ├── weather.ts        # Open-Meteo client (free, no key)
 │   ├── webcams.ts        # Windy Webcams API client
-│   ├── traffic.ts        # TomTom Traffic API client
 │   └── geocode.ts        # Coordinate helpers
 └── types/                # TypeScript interfaces
 ```

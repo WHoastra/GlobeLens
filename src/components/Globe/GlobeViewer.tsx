@@ -22,15 +22,20 @@ import {
   Matrix4,
   Moon,
   VerticalOrigin,
+  Entity,
+  CallbackProperty,
 } from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import { SatelliteManager, ISSInfo, ArtemisInfo } from "@/lib/satelliteManager";
 import { NewsRenderer } from "@/lib/newsRenderer";
 import { WebcamRenderer } from "@/lib/webcamRenderer";
 import { getMoonPositionECEF } from "@/lib/artemis";
-import { NewsArticle, NewsCategory, Webcam, WeatherTileLayerKey, ArtemisViewMode } from "@/types";
+import { NewsArticle, NewsCategory, Webcam, WeatherTileLayerKey, ArtemisViewMode, Launch } from "@/types";
+import { LaunchRenderer } from "@/lib/launchRenderer";
 import { StatsRenderer } from "@/lib/statsRenderer";
 import type { CountryStat } from "@/types/stats";
+// CHANGED: BayouBuoy renderer + types
+import { BayouBuoyRenderer, type BuoyNetworkData, type BuoyData, type SensorKey } from "@/lib/bayouBuoyRenderer";
 
 // Configure Cesium static asset paths
 if (typeof window !== "undefined") {
@@ -54,6 +59,10 @@ interface GlobeViewerProps {
   onRadarPlayToggle?: () => void;
   showSatellites?: boolean;
   satelliteTypes?: Set<string>;
+  showLaunches?: boolean;
+  launches?: Launch[];
+  selectedLaunch?: Launch | null;
+  onLaunchClick?: (launch: Launch) => void;
   trackISS?: boolean;
   trackArtemis?: boolean;
   showISSOrbit?: boolean;
@@ -70,7 +79,7 @@ interface GlobeViewerProps {
   onCameraDistanceChange?: (distanceKm: number) => void;
   onFlyToEarth?: React.MutableRefObject<(() => void) | null>;
   onFlyToMoon?: React.MutableRefObject<(() => void) | null>;
-  onFlyToLocation?: React.MutableRefObject<((lat: number, lon: number, alt: number) => void) | null>;
+  onFlyToLocation?: React.MutableRefObject<((lat: number, lon: number, alt: number, durationS?: number) => void) | null>;
   onSetSearchPin?: React.MutableRefObject<((lat: number, lon: number, label: string) => void) | null>;
   onClearSearchPin?: React.MutableRefObject<(() => void) | null>;
   onISSEntityClick?: () => void;
@@ -83,12 +92,18 @@ interface GlobeViewerProps {
   highlightedCountry?: string | null;
   onCountryClick?: (iso3: string) => void;
   onFlyToCountry?: React.MutableRefObject<((iso3: string) => void) | null>;
+  // CHANGED: BayouBuoy network props
+  bayouBuoyData?: BuoyNetworkData | null;
+  bayouBuoyVisible?: boolean;
+  selectedBuoy?: BuoyData | null;
+  onBuoySelect?: (buoy: BuoyData | null) => void;
+  bayouBuoyMetric?: SensorKey | null;
   className?: string;
 }
 
 export type { ISSInfo, ArtemisInfo };
 
-export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showRadar = false, onRadarTime, radarPlaying = false, showSatellites = false, satelliteTypes, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, showStats = false, statsData, statsColorScale, highlightedCountry, onCountryClick, onFlyToCountry, className }: GlobeViewerProps) {
+export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeatherLayers = [], showTraffic = false, showRadar = false, onRadarTime, radarPlaying = false, showSatellites = false, satelliteTypes, showLaunches = false, launches, selectedLaunch = null, onLaunchClick, trackISS = false, trackArtemis = false, showISSOrbit = true, artemisView = "none", isMobile = false, showNews = false, newsArticles, newsCategories, onNewsClick, showWebcams = false, onWebcamClick, onWebcamsLoaded, showArtemisActive = false, onCameraDistanceChange, onFlyToEarth, onFlyToMoon, onFlyToLocation, onSetSearchPin, onClearSearchPin, onISSEntityClick, onArtemisEntityClick, onISSInfo, onArtemisInfo, showStats = false, statsData, statsColorScale, highlightedCountry, onCountryClick, onFlyToCountry, bayouBuoyData = null, bayouBuoyVisible = false, selectedBuoy = null, onBuoySelect, bayouBuoyMetric = null, className }: GlobeViewerProps) {
   const [cesiumReady, setCesiumReady] = useState(typeof Viewer !== "undefined");
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -102,6 +117,16 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
   onCountryClickRef.current = onCountryClick;
   const showStatsRef = useRef(showStats);
   showStatsRef.current = showStats;
+  // CHANGED: BayouBuoy refs
+  const bayouBuoyRendererRef = useRef<BayouBuoyRenderer | null>(null);
+  const bayouBuoyVisibleRef = useRef(bayouBuoyVisible);
+  bayouBuoyVisibleRef.current = bayouBuoyVisible;
+  const onBuoySelectRef = useRef(onBuoySelect);
+  onBuoySelectRef.current = onBuoySelect;
+  const selectedBuoyEntityRef = useRef<Entity | null>(null);
+  const launchRendererRef = useRef<LaunchRenderer | null>(null);
+  const onLaunchClickRef = useRef(onLaunchClick);
+  onLaunchClickRef.current = onLaunchClick;
   const onNewsClickRef = useRef(onNewsClick);
   onNewsClickRef.current = onNewsClick;
   const onWebcamClickRef = useRef(onWebcamClick);
@@ -249,12 +274,27 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     webcamRenderer.setVisible(false);
     webcamRendererRef.current = webcamRenderer;
 
+    // ── Launch pads ──────────────────────────────────────────────
+    const launchRenderer = new LaunchRenderer(viewer);
+    launchRenderer.init();
+    launchRenderer.setOnLaunchClick((launch) => {
+      onLaunchClickRef.current?.(launch);
+    });
+    launchRenderer.setVisible(false);
+    launchRendererRef.current = launchRenderer;
+
     // ── Stats choropleth ────────────────────────────────────────
     const statsRenderer = new StatsRenderer(viewer);
     statsRenderer.setOnCountryClick((iso3) => {
       onCountryClickRef.current?.(iso3);
     });
     statsRendererRef.current = statsRenderer;
+
+    // ── BayouBuoy network ───────────────────────────────────────
+    // CHANGED: GPU-batched buoy renderer. isMobile from window width.
+    const buoyMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const bayouBuoyRenderer = new BayouBuoyRenderer(viewer, buoyMobile);
+    bayouBuoyRendererRef.current = bayouBuoyRenderer;
 
     // ── Satellite layer ─────────────────────────────────────────
     const satManager = new SatelliteManager(viewer, {
@@ -315,6 +355,18 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     // ── Click handler ──────────────────────────────────────────
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction((movement: { position: Cartesian2 }) => {
+      // CHANGED: BayouBuoy first — buoys are denser than other layers, need first-priority hit detection
+      if (bayouBuoyVisibleRef.current && bayouBuoyRendererRef.current) {
+        const buoy = bayouBuoyRendererRef.current.getBuoyAtScreenPosition(
+          movement.position.x,
+          movement.position.y,
+        );
+        if (buoy) {
+          onBuoySelectRef.current?.(buoy);
+          return;
+        }
+      }
+
       // Try picking an entity/primitive first
       const picked = viewer.scene.pick(movement.position);
 
@@ -352,6 +404,9 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
           return;
         }
         if (webcamRendererRef.current && webcamRendererRef.current.tryClick(clickLat, clickLon)) {
+          return;
+        }
+        if (launchRendererRef.current && launchRendererRef.current.tryClick(clickLat, clickLon)) {
           return;
         }
 
@@ -420,6 +475,19 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       if (statsRendererRef.current) {
         statsRendererRef.current.destroy();
         statsRendererRef.current = null;
+      }
+      if (launchRendererRef.current) {
+        launchRendererRef.current.destroy();
+        launchRendererRef.current = null;
+      }
+      // CHANGED: BayouBuoy cleanup
+      if (bayouBuoyRendererRef.current) {
+        bayouBuoyRendererRef.current.destroy();
+        bayouBuoyRendererRef.current = null;
+      }
+      if (selectedBuoyEntityRef.current && !viewer.isDestroyed()) {
+        viewer.entities.remove(selectedBuoyEntityRef.current);
+        selectedBuoyEntityRef.current = null;
       }
       if (!viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
@@ -667,6 +735,57 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
     renderer.highlightCountry(highlightedCountry ?? null);
   }, [highlightedCountry]);
 
+  // CHANGED: Render BayouBuoy network when data or visibility changes
+  useEffect(() => {
+    const renderer = bayouBuoyRendererRef.current;
+    if (!renderer) return;
+    if (bayouBuoyVisible && bayouBuoyData) {
+      renderer.render(bayouBuoyData);
+    } else {
+      renderer.clear();
+    }
+  }, [bayouBuoyData, bayouBuoyVisible]);
+
+  // CHANGED: Apply / clear metric color gradient on buoys
+  useEffect(() => {
+    const renderer = bayouBuoyRendererRef.current;
+    if (!renderer) return;
+    renderer.setMetricColorMode(bayouBuoyMetric ?? null);
+  }, [bayouBuoyMetric, bayouBuoyData]);
+
+  // CHANGED: Highlight the selected buoy with a pulsing ring entity
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (selectedBuoyEntityRef.current) {
+      viewer.entities.remove(selectedBuoyEntityRef.current);
+      selectedBuoyEntityRef.current = null;
+    }
+
+    if (selectedBuoy && bayouBuoyVisible) {
+      selectedBuoyEntityRef.current = viewer.entities.add({
+        position: Cartesian3.fromDegrees(selectedBuoy.lon, selectedBuoy.lat, 0),
+        ellipse: {
+          // 800m base radius pulsing to 1500m
+          semiMinorAxis: new CallbackProperty(
+            () => 800 + Math.sin(Date.now() / 350) * 350,
+            false,
+          ),
+          semiMajorAxis: new CallbackProperty(
+            () => 800 + Math.sin(Date.now() / 350) * 350,
+            false,
+          ),
+          material: Color.WHITE.withAlpha(0.15),
+          outline: true,
+          outlineColor: Color.WHITE.withAlpha(0.9),
+          outlineWidth: 2,
+          height: 0,
+        },
+      });
+    }
+  }, [selectedBuoy, bayouBuoyVisible]);
+
   // Artemis deep-space camera constraints + distance reporting + Moon orbit
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -762,12 +881,12 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       onFlyToMoon.current = () => satManagerRef.current?.flyToMoon();
     }
     if (onFlyToLocation) {
-      onFlyToLocation.current = (lat: number, lon: number, alt: number) => {
+      onFlyToLocation.current = (lat: number, lon: number, alt: number, durationS = 2) => {
         const viewer = viewerRef.current;
         if (!viewer || viewer.isDestroyed()) return;
         viewer.camera.flyTo({
           destination: Cartesian3.fromDegrees(lon, lat, alt),
-          duration: 2,
+          duration: durationS,
         });
       };
     }
@@ -849,6 +968,27 @@ export default function GlobeViewer({ onGlobeClick, onStopTracking, activeWeathe
       satManagerRef.current.setVisible(showSatellites);
     }
   }, [showSatellites]);
+
+  // Toggle launch layer visibility
+  useEffect(() => {
+    if (launchRendererRef.current) {
+      launchRendererRef.current.setVisible(showLaunches);
+    }
+  }, [showLaunches]);
+
+  // Render launch pads when data changes
+  useEffect(() => {
+    if (launchRendererRef.current && launches && showLaunches) {
+      launchRendererRef.current.render(launches);
+    }
+  }, [launches, showLaunches, cesiumReady]);
+
+  // Draw target orbit + ascent arc for the selected launch
+  useEffect(() => {
+    if (launchRendererRef.current) {
+      launchRendererRef.current.showOrbit(showLaunches ? selectedLaunch : null);
+    }
+  }, [selectedLaunch, showLaunches]);
 
   // Update satellite type filter
   useEffect(() => {

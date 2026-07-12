@@ -118,11 +118,45 @@ export const SATELLITE_CATEGORIES: { key: string; label: string; color: string }
   { key: "station", label: "Stations", color: "#ffffff" },
 ];
 
+/* ── Launches ──────────────────────────────────────── */
+export type LaunchProvider = "spacex" | "nasa" | "other";
+
+export const LAUNCH_PROVIDERS: { key: LaunchProvider; label: string; color: string }[] = [
+  { key: "spacex", label: "SpaceX", color: "#38bdf8" },
+  { key: "nasa", label: "NASA", color: "#fc3d21" },
+  { key: "other", label: "Other", color: "#c084fc" },
+];
+
+export interface Launch {
+  id: string;
+  name: string;
+  rocketName: string;
+  missionName?: string;
+  missionDescription?: string;
+  provider: LaunchProvider;
+  providerName: string;
+  status: string;
+  statusAbbrev: string;
+  net: string; // ISO launch time (No Earlier Than)
+  windowStart?: string;
+  windowEnd?: string;
+  orbitName?: string;
+  orbitAbbrev?: string;
+  padName: string;
+  padLocation: string;
+  latitude: number;
+  longitude: number;
+  image?: string;
+  webcastUrl?: string;
+  webcastLive?: boolean;
+  upcoming: boolean;
+}
+
 /* ── Artemis Views ────────────────────────────────── */
 export type ArtemisViewMode = "none" | "earth-orbit" | "lunar-transit" | "flyby-return";
 
 /* ── Layer Toggle ──────────────────────────────────── */
-export type LayerType = "news" | "weather" | "webcams" | "traffic" | "satellites" | "stats";
+export type LayerType = "news" | "weather" | "webcams" | "traffic" | "satellites" | "launches" | "stats" | "bayouBuoy";
 
 export interface LayerState {
   news: boolean;
@@ -130,5 +164,7 @@ export interface LayerState {
   webcams: boolean;
   traffic: boolean;
   satellites: boolean;
+  launches: boolean;
   stats: boolean;
+  bayouBuoy: boolean;
 }

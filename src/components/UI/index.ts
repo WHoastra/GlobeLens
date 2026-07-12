@@ -6,3 +6,4 @@ export { default as WeatherCard } from "./WeatherCard";
 export { default as NewsFeedPanel } from "./NewsFeedPanel";
 export { default as LiveStreamPlayer } from "./LiveStreamPlayer";
 export { default as StatsPanel } from "./StatsPanel";
+export { default as LaunchPanel } from "./LaunchPanel";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Newspaper, Cloud, Camera, Car, Satellite, BarChart3 } from "lucide-react";
+import { Newspaper, Cloud, Camera, Car, Satellite, Rocket, BarChart3, Anchor } from "lucide-react";
 import { LayerState, LayerType, WeatherTileLayerKey, NewsCategory, NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 
 interface LayerToggleProps {
@@ -29,7 +29,9 @@ const LAYER_CONFIG: { key: LayerType; label: string; icon: typeof Newspaper }[] 
   { key: "webcams", label: "Webcams", icon: Camera },
   { key: "traffic", label: "Traffic", icon: Car },
   { key: "satellites", label: "Satellites", icon: Satellite },
+  { key: "launches", label: "Launches", icon: Rocket },
   { key: "stats", label: "Stats", icon: BarChart3 },
+  { key: "bayouBuoy", label: "BayouBuoy", icon: Anchor },
 ];
 
 /* ── Color legend data for each weather layer ─────────── */

@@ -5,7 +5,17 @@
       "Bash(cd /tmp)",
       "Bash(npx create-next-app@14 globelens-init --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm)",
       "Bash(cp -r /tmp/globelens-init/src /tmp/globelens-init/public /tmp/globelens-init/package.json /tmp/globelens-init/package-lock.json /tmp/globelens-init/tsconfig.json /tmp/globelens-init/postcss.config.mjs /tmp/globelens-init/tailwind.config.ts \"c:/Users/WStra/Desktop/GlobeLens/\")",
-      "Bash(cp /tmp/globelens-init/.eslintrc.json /tmp/globelens-init/.gitignore \"c:/Users/WStra/Desktop/GlobeLens/\")"
+      "Bash(cp /tmp/globelens-init/.eslintrc.json /tmp/globelens-init/.gitignore \"c:/Users/WStra/Desktop/GlobeLens/\")",
+      "Bash(git -C \"C:/Users/WStra/Desktop/Devs/GlobeLens\" status --short)",
+      "Bash(git -C \"C:/Users/WStra/Desktop/Devs/GlobeLens\" diff --stat)",
+      "Bash(awk -F\"basin: '\" '{print $2}')",
+      "Bash(awk -F\"'\" '{print $1}')",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\WStra\\\\Desktop\\\\Devs\\\\GlobeLens\" -Force)",
+      "Bash(Select-Object -Property Name, Mode)",
+      "Bash(git -C \"C:\\\\Users\\\\WStra\\\\Desktop\\\\Devs\\\\GlobeLens\" ls-files)",
+      "Bash(grep -rn \"^\\\\s*//.*\\\\\\(disabled\\\\|old\\\\|unused\\\\|temp\\\\|debug\\\\|remove\\\\\\)\" \"C:\\\\Users\\\\WStra\\\\Desktop\\\\Devs\\\\GlobeLens\\\\src\" --include=\"*.tsx\" --include=\"*.ts\" -i)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"TSC_EXIT:$?\")"
     ]
   }
 }

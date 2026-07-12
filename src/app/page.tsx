@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio, BarChart3 } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer, StatsPanel } from "@/components/UI";
+import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio, BarChart3, Anchor } from "lucide-react";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer, StatsPanel, LaunchPanel } from "@/components/UI";
 import WeatherPanel from "@/components/Panels/WeatherPanel";
 import ISSPanelWrapper from "@/components/Panels/ISSPanel";
 import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
@@ -12,10 +12,16 @@ import WeatherContent from "@/components/Layers/WeatherPanel";
 import ISSContent from "@/components/Layers/ISSPanel";
 import ArtemisContent from "@/components/Layers/ArtemisPanel";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory, NominatimResult, SearchWeatherData } from "@/types";
+import type { LayerState, LayerType, WeatherData, WeatherTileLayerKey, NewsArticle, Webcam, ArtemisViewMode, NewsCategory, NominatimResult, SearchWeatherData, Launch, LaunchProvider } from "@/types";
 import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 import type { CountryStat } from "@/types/stats";
+// CHANGED: BayouBuoy imports
+import BayouBuoyHUD, { type DemoMode } from "@/components/BayouBuoyHUD";
+import BuoyDetailPanel, { SENSOR_META } from "@/components/BuoyDetailPanel";
+import BayouBuoyDemoTour from "@/components/BayouBuoyDemoTour";
+import BuoyCompareView from "@/components/BuoyCompareView";
+import type { BuoyNetworkData, BuoyData, SensorKey } from "@/lib/bayouBuoyRenderer";
 
 // CesiumJS must be loaded client-side only (no SSR)
 const GlobeViewer = dynamic(
@@ -34,7 +40,7 @@ const ARTEMIS_LIVE_YT = "https://www.youtube.com/embed/m3kR2KK8TEs?autoplay=1";
 export default function Home() {
   const { isMobile } = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | "stats" | null>(null);
+  const [bottomSheet, setBottomSheet] = useState<"info" | "news" | "webcam" | "livefeed" | "iss" | "artemis" | "stats" | "launches" | null>(null);
 
   const [layers, setLayers] = useState<LayerState>({
     news: true,
@@ -42,7 +48,9 @@ export default function Home() {
     webcams: false,
     traffic: false,
     satellites: false,
+    launches: false,
     stats: false,
+    bayouBuoy: false,
   });
 
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -73,12 +81,28 @@ export default function Home() {
   const [newsPanelCategory, setNewsPanelCategory] = useState<NewsCategory | "all">("all");
   const [satelliteTypes, setSatelliteTypes] = useState<Set<string>>(() => new Set(["starlink", "gps", "weather", "station"]));
 
+  // Launches state
+  const [launches, setLaunches] = useState<Launch[]>([]);
+  const [selectedLaunch, setSelectedLaunch] = useState<Launch | null>(null);
+  const [launchPanelOpen, setLaunchPanelOpen] = useState(false);
+  const [launchProvider, setLaunchProvider] = useState<LaunchProvider | "all">("all");
+
   // Stats state
   const [statsData, setStatsData] = useState<CountryStat[] | undefined>(undefined);
   const [statsColorScale, setStatsColorScale] = useState<[string, string] | undefined>(undefined);
   const [selectedStatsCountry, setSelectedStatsCountry] = useState<string | null>(null);
   const [statsPanelOpen, setStatsPanelOpen] = useState(false);
   const flyToCountryRef = useRef<((iso3: string) => void) | null>(null);
+
+  // CHANGED: BayouBuoy state
+  const [bayouBuoyData, setBayouBuoyData] = useState<BuoyNetworkData | null>(null);
+  const [bayouBuoyMode, setBayouBuoyMode] = useState<DemoMode>("normal");
+  const [selectedBuoy, setSelectedBuoy] = useState<BuoyData | null>(null);
+  const [hasAutoFlownToCoast, setHasAutoFlownToCoast] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
+  const [compareList, setCompareList] = useState<BuoyData[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [activeSensor, setActiveSensor] = useState<SensorKey | null>(null);
 
   // Webcam state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -114,7 +138,7 @@ export default function Home() {
   const [, setCameraDistanceKm] = useState(0);
   const flyToEarthRef = useRef<(() => void) | null>(null);
   const flyToMoonRef = useRef<(() => void) | null>(null);
-  const flyToLocationRef = useRef<((lat: number, lon: number, alt: number) => void) | null>(null);
+  const flyToLocationRef = useRef<((lat: number, lon: number, alt: number, durationS?: number) => void) | null>(null);
   const setSearchPinRef = useRef<((lat: number, lon: number, label: string) => void) | null>(null);
   const clearSearchPinRef = useRef<(() => void) | null>(null);
 
@@ -260,6 +284,51 @@ export default function Home() {
     return () => controller.abort();
   }, [layers.news]);
 
+  // Fetch launches when the Launches layer is on — refresh every 5 minutes
+  useEffect(() => {
+    if (!layers.launches) {
+      setLaunches([]);
+      setSelectedLaunch(null);
+      setLaunchPanelOpen(false);
+      return;
+    }
+    setLaunchPanelOpen(true);
+    setNewsPanelOpen(false); // both panels dock right — launches takes over
+    if (isMobile) setBottomSheet("launches");
+
+    let cancelled = false;
+    const fetchLaunches = async () => {
+      try {
+        const res = await fetch("/api/launches");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as Launch[];
+        if (!cancelled && Array.isArray(data)) setLaunches(data);
+      } catch (e) {
+        console.warn("[Launches] fetch failed:", e);
+      }
+    };
+    fetchLaunches();
+    const interval = setInterval(fetchLaunches, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layers.launches]);
+
+  // Launch selection — fly to the pad and draw its target orbit
+  const handleLaunchSelect = useCallback((launch: Launch) => {
+    setSelectedLaunch((prev) => (prev?.id === launch.id ? null : launch));
+    flyToLocationRef.current?.(launch.latitude, launch.longitude, 2_500_000, 2);
+    if (isMobile) setBottomSheet("launches");
+  }, [isMobile]);
+
+  // Filter launches by provider tab — drives both globe pins and panel list
+  const filteredLaunches = useMemo(() => {
+    if (launchProvider === "all") return launches;
+    return launches.filter((l) => l.provider === launchProvider);
+  }, [launches, launchProvider]);
+
   // Open/close stats panel when layer toggles
   useEffect(() => {
     if (layers.stats) {
@@ -272,6 +341,104 @@ export default function Home() {
       setSelectedStatsCountry(null);
     }
   }, [layers.stats, isMobile]);
+
+  // CHANGED: BayouBuoy polling — fetch on mount/mode-change, refresh every 30s
+  useEffect(() => {
+    if (!layers.bayouBuoy) {
+      setSelectedBuoy(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchBuoys = async () => {
+      try {
+        const res = await fetch(`/api/bayou-buoys?mode=${bayouBuoyMode}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as BuoyNetworkData;
+        if (!cancelled) setBayouBuoyData(json);
+      } catch (e) {
+        // Keep last good data — don't crash the globe
+        console.warn("[BayouBuoy] fetch failed:", e);
+      }
+    };
+    fetchBuoys();
+    const interval = setInterval(fetchBuoys, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [layers.bayouBuoy, bayouBuoyMode]);
+
+  // CHANGED: Auto-fly camera to coastal LA on first activation, only if no other layer is focused
+  useEffect(() => {
+    if (!layers.bayouBuoy || hasAutoFlownToCoast) return;
+    const noFocus =
+      !selectedLocation && !selectedArticle && !selectedWebcam && !liveFeed
+      && !showISS && !showArtemis && !selectedStatsCountry;
+    if (noFocus && flyToLocationRef.current) {
+      flyToLocationRef.current(29.10, -90.52, 130_000, 2.5);
+      setHasAutoFlownToCoast(true);
+    }
+  }, [layers.bayouBuoy, hasAutoFlownToCoast, selectedLocation, selectedArticle, selectedWebcam, liveFeed, showISS, showArtemis, selectedStatsCountry]);
+
+  // CHANGED: Reset auto-fly flag when BayouBuoy is turned off so re-activation flies again
+  useEffect(() => {
+    if (!layers.bayouBuoy) {
+      setHasAutoFlownToCoast(false);
+      setCompareList([]);
+      setCompareOpen(false);
+      setActiveSensor(null);
+    }
+  }, [layers.bayouBuoy]);
+
+  // Clear the on-globe metric gradient when the detail panel closes (no buoy)
+  useEffect(() => {
+    if (!selectedBuoy) setActiveSensor(null);
+  }, [selectedBuoy]);
+
+  // CHANGED: Stable callback for buoy selection — also zooms camera in
+  const handleBuoySelect = useCallback((buoy: BuoyData | null) => {
+    setSelectedBuoy(buoy);
+    if (buoy) {
+      flyToLocationRef.current?.(buoy.lat, buoy.lon, 8_000, 1.5);
+    }
+  }, []);
+
+  const handleBayouBuoyClose = useCallback(() => {
+    setLayers((prev) => ({ ...prev, bayouBuoy: false }));
+  }, []);
+
+  const handleBayouBuoyModeChange = useCallback((mode: DemoMode) => {
+    setBayouBuoyMode(mode);
+  }, []);
+
+  const handleStartDemoTour = useCallback(() => {
+    setTourActive(true);
+  }, []);
+
+  const handleEndDemoTour = useCallback(() => {
+    setTourActive(false);
+  }, []);
+
+  const handleToggleCompare = useCallback((buoy: BuoyData) => {
+    setCompareList((prev) => {
+      const has = prev.some((b) => b.id === buoy.id);
+      if (has) return prev.filter((b) => b.id !== buoy.id);
+      if (prev.length >= 4) return prev;
+      return [...prev, buoy];
+    });
+  }, []);
+
+  const handleRemoveFromCompare = useCallback((id: string) => {
+    setCompareList((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  const handleClearCompare = useCallback(() => {
+    setCompareList([]);
+    setCompareOpen(false);
+  }, []);
+
+  const handleOpenCompare = useCallback(() => setCompareOpen(true), []);
+  const handleCloseCompare = useCallback(() => setCompareOpen(false), []);
 
   const handleStatsDataChange = useCallback((data: CountryStat[], colorScale: [string, string]) => {
     setStatsData(data);
@@ -322,6 +489,10 @@ export default function Home() {
         onRadarPlayToggle={() => setRadarPlaying((p) => !p)}
         showSatellites={layers.satellites}
         satelliteTypes={satelliteTypes}
+        showLaunches={layers.launches}
+        launches={filteredLaunches}
+        selectedLaunch={selectedLaunch}
+        onLaunchClick={handleLaunchSelect}
         trackISS={trackISS}
         trackArtemis={trackArtemis}
         showISSOrbit={showISSOrbit && showISS}
@@ -349,6 +520,11 @@ export default function Home() {
         highlightedCountry={selectedStatsCountry}
         onCountryClick={handleCountryClickFromGlobe}
         onFlyToCountry={flyToCountryRef}
+        bayouBuoyData={bayouBuoyData}
+        bayouBuoyVisible={layers.bayouBuoy}
+        selectedBuoy={selectedBuoy}
+        onBuoySelect={handleBuoySelect}
+        bayouBuoyMetric={activeSensor}
       />
 
       {/* Layer toggle buttons */}
@@ -418,7 +594,9 @@ export default function Home() {
               { label: "Webcams", icon: Camera, active: layers.webcams, onClick: () => handleToggle("webcams" as LayerType) },
               { label: "Traffic", icon: Car, active: layers.traffic, onClick: () => handleToggle("traffic" as LayerType) },
               { label: "Satellites", icon: Satellite, active: layers.satellites, onClick: () => handleToggle("satellites" as LayerType) },
+              { label: "Launches", icon: Rocket, active: layers.launches, onClick: () => handleToggle("launches" as LayerType) },
               { label: "Stats", icon: BarChart3, active: layers.stats, onClick: () => handleToggle("stats" as LayerType) },
+              { label: "BayouBuoy", icon: Anchor, active: layers.bayouBuoy, onClick: () => handleToggle("bayouBuoy" as LayerType) },
             ]).map(({ label, icon: Icon, active, onClick }) => (
               <button
                 key={label}
@@ -837,6 +1015,18 @@ export default function Home() {
         />
       )}
 
+      {/* Launches panel — desktop only */}
+      {!isMobile && layers.launches && launchPanelOpen && (
+        <LaunchPanel
+          launches={launches}
+          activeProvider={launchProvider}
+          onProviderChange={setLaunchProvider}
+          onLaunchClick={handleLaunchSelect}
+          onClose={() => setLaunchPanelOpen(false)}
+          selectedLaunchId={selectedLaunch?.id ?? null}
+        />
+      )}
+
       {/* Stats panel — desktop only */}
       {!isMobile && layers.stats && statsPanelOpen && (
         <StatsPanel
@@ -847,6 +1037,77 @@ export default function Home() {
           flyToCountry={flyToCountryRef.current}
         />
       )}
+
+      {/* CHANGED: BayouBuoy HUD + detail panel + demo tour + compare view */}
+      <BayouBuoyHUD
+        data={bayouBuoyData}
+        mode={bayouBuoyMode}
+        onModeChange={handleBayouBuoyModeChange}
+        onClose={handleBayouBuoyClose}
+        visible={layers.bayouBuoy}
+        onStartDemo={layers.bayouBuoy ? handleStartDemoTour : undefined}
+        compareCount={compareList.length}
+        onOpenCompare={layers.bayouBuoy ? handleOpenCompare : undefined}
+      />
+      <BuoyDetailPanel
+        buoy={layers.bayouBuoy ? selectedBuoy : null}
+        onClose={() => setSelectedBuoy(null)}
+        isInCompare={selectedBuoy ? compareList.some((b) => b.id === selectedBuoy.id) : false}
+        compareCount={compareList.length}
+        compareMax={4}
+        onToggleCompare={handleToggleCompare}
+        selectedSensor={activeSensor}
+        onSensorSelect={setActiveSensor}
+      />
+
+      {/* Metric gradient legend — visible when a sensor is selected */}
+      {layers.bayouBuoy && activeSensor && bayouBuoyData && (() => {
+        const meta = SENSOR_META[activeSensor];
+        const values = bayouBuoyData.buoys.map((b) => b[activeSensor] as number);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return (
+          <div className="absolute bottom-20 left-4 z-20 px-3 py-2 rounded-lg bg-black/85 backdrop-blur-md border border-white/15 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-white/70 font-bold">
+                Map: {meta.label}
+              </span>
+              <button
+                onClick={() => setActiveSensor(null)}
+                className="text-white/40 hover:text-white transition-colors"
+                title="Clear gradient"
+              >
+                <X size={11} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono text-white/50 w-10 text-right">{min.toFixed(1)}</span>
+              <div
+                className="w-32 h-2 rounded-full"
+                style={{ background: "linear-gradient(to right, #2563EB, #F59E0B, #DC2626)" }}
+              />
+              <span className="text-[9px] font-mono text-white/50 w-10">{max.toFixed(1)}</span>
+            </div>
+            <p className="text-[9px] text-white/40 mt-0.5">{meta.unit || "—"}</p>
+          </div>
+        );
+      })()}
+      {compareOpen && layers.bayouBuoy && compareList.length > 0 && (
+        <BuoyCompareView
+          buoys={compareList}
+          onClose={handleCloseCompare}
+          onRemove={handleRemoveFromCompare}
+          onClear={handleClearCompare}
+        />
+      )}
+      <BayouBuoyDemoTour
+        active={tourActive && layers.bayouBuoy}
+        onClose={handleEndDemoTour}
+        data={bayouBuoyData}
+        flyTo={(lat, lon, alt, dur) => flyToLocationRef.current?.(lat, lon, alt, dur)}
+        setMode={setBayouBuoyMode}
+        setSelectedBuoy={setSelectedBuoy}
+      />
 
       {/* Stats color legend — bottom left when stats active */}
       {layers.stats && statsColorScale && statsData && statsData.length > 0 && (
@@ -987,6 +1248,17 @@ export default function Home() {
                     setTrackISS((prev) => !prev);
                     if (!trackISS) setTrackArtemis(false);
                   }}
+                />
+              )}
+              {bottomSheet === "launches" && layers.launches && (
+                <LaunchPanel
+                  inline
+                  launches={launches}
+                  activeProvider={launchProvider}
+                  onProviderChange={setLaunchProvider}
+                  onLaunchClick={handleLaunchSelect}
+                  onClose={() => setBottomSheet(null)}
+                  selectedLaunchId={selectedLaunch?.id ?? null}
                 />
               )}
               {bottomSheet === "stats" && layers.stats && (
