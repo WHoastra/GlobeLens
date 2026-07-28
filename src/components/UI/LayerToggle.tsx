@@ -6,6 +6,8 @@ import { LayerState, LayerType, WeatherTileLayerKey, NewsCategory, NEWS_CATEGORI
 interface LayerToggleProps {
   layers: LayerState;
   onToggle: (layer: LayerType) => void;
+  /** True when a right-dock panel is open — shifts the rail left so it stays visible */
+  shifted?: boolean;
   activeWeatherLayers?: WeatherTileLayerKey[];
   onWeatherLayerToggle?: (layer: WeatherTileLayerKey) => void;
   newsCategories?: Set<NewsCategory>;
@@ -78,23 +80,27 @@ const LEGENDS: Record<WeatherTileLayerKey, { label: string; stops: { color: stri
   },
 };
 
-export default function LayerToggle({ layers, onToggle, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle, satelliteTypes, onSatelliteTypeToggle, showRadar, onRadarToggle }: LayerToggleProps) {
+export default function LayerToggle({ layers, onToggle, shifted = false, activeWeatherLayers = [], onWeatherLayerToggle, newsCategories, onNewsCategoryToggle, satelliteTypes, onSatelliteTypeToggle, showRadar, onRadarToggle }: LayerToggleProps) {
   return (
-    <div className="absolute z-10 hidden md:flex md:top-4 md:right-4 md:flex-col md:bg-transparent md:backdrop-blur-none md:border-0 md:overflow-visible md:px-0 md:py-0">
+    <div
+      className="absolute z-30 hidden md:flex md:top-4 transition-[right] duration-300 md:flex-col md:max-h-[calc(100vh-2rem)] md:overflow-y-auto rounded-xl bg-black/50 backdrop-blur-xl border border-white/10 p-2 gap-1 shadow-2xl"
+      style={{ right: shifted ? 416 : 16 }}
+    >
+      <p className="text-[9px] text-white/30 uppercase tracking-widest px-1.5 pt-0.5 pb-1">Layers</p>
       {LAYER_CONFIG.map(({ key, label, icon: Icon }) => (
         <div key={key}>
           <button
             onClick={() => onToggle(key)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-              transition-all duration-200 backdrop-blur-md border w-full shrink-0 min-h-[44px]
+            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium
+              transition-all duration-200 border w-full shrink-0 min-h-[38px]
               ${
                 layers[key]
-                  ? "bg-white/20 border-white/40 text-white shadow-lg shadow-white/10"
-                  : "bg-black/30 border-white/10 text-white/50 hover:bg-black/40 hover:text-white/70"
+                  ? "bg-white/15 border-white/30 text-white shadow-md shadow-white/5"
+                  : "bg-transparent border-transparent text-white/45 hover:bg-white/5 hover:text-white/70"
               }`}
             title={`Toggle ${label} layer`}
           >
-            <Icon size={16} />
+            <Icon size={15} />
             <span className="hidden md:inline">{label}</span>
           </button>
 

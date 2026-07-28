@@ -33,6 +33,22 @@ function formatNet(net: string): string {
   return d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+/** Self-ticking countdown — keeps the 1s re-render local instead of
+ *  re-rendering the whole launch list every second. */
+function Countdown({ net }: { net: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const isImminent = new Date(net).getTime() - now < 24 * 3_600_000;
+  return (
+    <span className={`text-xs font-mono font-bold ${isImminent ? "text-green-400" : "text-white/70"}`}>
+      {formatCountdown(net, now)}
+    </span>
+  );
+}
+
 interface LaunchPanelProps {
   launches: Launch[];
   activeProvider: LaunchProvider | "all";
@@ -52,14 +68,7 @@ export default function LaunchPanel({
   selectedLaunchId,
   inline = false,
 }: LaunchPanelProps) {
-  const [now, setNow] = useState(() => Date.now());
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  // Tick every second so countdowns stay live
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   // Scroll to the selected launch when picked from the globe
   useEffect(() => {
@@ -88,7 +97,6 @@ export default function LaunchPanel({
     const provider = LAUNCH_PROVIDERS.find((p) => p.key === launch.provider);
     const statusColor = STATUS_COLORS[launch.statusAbbrev] ?? "#9ca3af";
     const isSelected = launch.id === selectedLaunchId;
-    const isImminent = launch.upcoming && new Date(launch.net).getTime() - now < 24 * 3_600_000;
 
     return (
       <div
@@ -117,9 +125,7 @@ export default function LaunchPanel({
         </div>
         <div className="flex items-center gap-2 mt-1.5">
           {launch.upcoming ? (
-            <span className={`text-xs font-mono font-bold ${isImminent ? "text-green-400" : "text-white/70"}`}>
-              {formatCountdown(launch.net, now)}
-            </span>
+            <Countdown net={launch.net} />
           ) : (
             <span className="text-xs font-mono text-white/50">{formatNet(launch.net)}</span>
           )}
@@ -235,7 +241,7 @@ export default function LaunchPanel({
   }
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-[420px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl">
+    <div className="side-panel-animate fixed top-0 right-0 h-screen w-[400px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">

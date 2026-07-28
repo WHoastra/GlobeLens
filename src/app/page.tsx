@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { X, Menu, Newspaper, Cloud, Camera, Car, Satellite, Moon, Rocket, Radio, BarChart3, Anchor } from "lucide-react";
-import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, NewsFeedPanel, LiveStreamPlayer, StatsPanel, LaunchPanel } from "@/components/UI";
+import { LayerToggle, InfoPanel, LoadingOverlay, SearchBar, LiveStreamPlayer } from "@/components/UI";
 import WeatherPanel from "@/components/Panels/WeatherPanel";
 import ISSPanelWrapper from "@/components/Panels/ISSPanel";
 import ArtemisPanelWrapper from "@/components/Panels/ArtemisPanel";
@@ -17,11 +17,17 @@ import { NEWS_CATEGORIES, SATELLITE_CATEGORIES } from "@/types";
 import type { GlobeClickEvent, ISSInfo, ArtemisInfo } from "@/components/Globe";
 import type { CountryStat } from "@/types/stats";
 // CHANGED: BayouBuoy imports
-import BayouBuoyHUD, { type DemoMode } from "@/components/BayouBuoyHUD";
 import BuoyDetailPanel, { SENSOR_META } from "@/components/BuoyDetailPanel";
-import BayouBuoyDemoTour from "@/components/BayouBuoyDemoTour";
-import BuoyCompareView from "@/components/BuoyCompareView";
+import type { DemoMode } from "@/components/BayouBuoyHUD";
 import type { BuoyNetworkData, BuoyData, SensorKey } from "@/lib/bayouBuoyRenderer";
+
+// Heavy panels are code-split — they only load when their layer is toggled on
+const NewsFeedPanel = dynamic(() => import("@/components/UI/NewsFeedPanel"), { ssr: false });
+const StatsPanel = dynamic(() => import("@/components/UI/StatsPanel"), { ssr: false });
+const LaunchPanel = dynamic(() => import("@/components/UI/LaunchPanel"), { ssr: false });
+const BayouBuoyHUD = dynamic(() => import("@/components/BayouBuoyHUD"), { ssr: false });
+const BayouBuoyDemoTour = dynamic(() => import("@/components/BayouBuoyDemoTour"), { ssr: false });
+const BuoyCompareView = dynamic(() => import("@/components/BuoyCompareView"), { ssr: false });
 
 // CesiumJS must be loaded client-side only (no SSR)
 const GlobeViewer = dynamic(
@@ -464,6 +470,14 @@ export default function Home() {
 
   const hasActiveData = layers.weather || layers.webcams || layers.news;
 
+  // True when any right-dock panel is open — the layer rail shifts left of it
+  const rightPanelOpen = !isMobile && (
+    (layers.news && newsPanelOpen && newsArticles.length > 0) ||
+    (layers.launches && launchPanelOpen) ||
+    (layers.stats && statsPanelOpen) ||
+    (layers.bayouBuoy && !!selectedBuoy)
+  );
+
   // Filter news articles near the searched location (within ~500km / ~5 degrees)
   const nearbySearchNews = useMemo(() => {
     if (!searchWeather || newsArticles.length === 0) return [];
@@ -531,6 +545,7 @@ export default function Home() {
       <LayerToggle
         layers={layers}
         onToggle={handleToggle}
+        shifted={rightPanelOpen}
         activeWeatherLayers={activeWeatherLayers}
         onWeatherLayerToggle={handleWeatherLayerToggle}
         showRadar={showRadar}
@@ -947,18 +962,6 @@ export default function Home() {
           Go to Moon
         </button>
       </div>
-
-      {/* News legend — positioned left of LIVE NEWS panel */}
-      {!isMobile && layers.news && newsPanelOpen && newsArticles.length > 0 && (
-        <div className="absolute top-16 right-[496px] z-20 flex flex-col gap-1.5">
-          {NEWS_CATEGORIES.map(({ key, label, color }) => (
-            <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-md border border-white/10">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-[10px] text-white/60">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Attribution + legends — bottom right */}
       <div className="absolute bottom-2 right-3 z-10 flex flex-col items-end gap-1">

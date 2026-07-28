@@ -453,7 +453,7 @@ export default function BuoyDetailPanel({
       onTouchStart={handleTouchStart}
       className={`fixed z-30 bg-black/85 backdrop-blur-xl border border-white/10 text-white shadow-2xl flex flex-col transition-transform duration-200
         bottom-0 left-0 right-0 max-h-[92vh] rounded-t-2xl
-        md:bottom-auto md:left-auto md:top-0 md:right-0 md:h-screen md:max-h-screen md:w-[420px] md:rounded-none md:rounded-l-2xl
+        md:bottom-auto md:left-auto md:top-0 md:right-0 md:h-screen md:max-h-screen md:w-[400px] md:rounded-none md:rounded-l-2xl
         ${visible
           ? "translate-y-0 md:translate-x-0"
           : "translate-y-full md:translate-y-0 md:translate-x-full pointer-events-none"

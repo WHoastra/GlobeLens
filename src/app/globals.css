@@ -32,6 +32,35 @@ html, body {
   animation: fadeIn 200ms ease forwards;
 }
 
+/* Side panel slide-in (news / launches / stats docks) */
+@keyframes slideInRight {
+  from { transform: translateX(40px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.side-panel-animate {
+  animation: slideInRight 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Thin dark scrollbars for panels */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* Cesium viewer overrides */
 .cesium-viewer {
   position: absolute;

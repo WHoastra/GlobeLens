@@ -88,7 +88,7 @@ export default function StatsPanel({
   return (
     <div className={inline
       ? "flex flex-col h-full text-white"
-      : "fixed top-0 right-0 h-screen w-[400px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl"
+      : "side-panel-animate fixed top-0 right-0 h-screen w-[400px] bg-black/85 backdrop-blur-xl border-l border-white/10 text-white z-20 flex flex-col shadow-2xl"
     }>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">

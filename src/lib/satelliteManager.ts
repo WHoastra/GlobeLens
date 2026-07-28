@@ -154,8 +154,10 @@ export class SatelliteManager {
   private updateInterval: ReturnType<typeof setInterval> | null = null;
   private isVisible = false;
   private issAlwaysVisible = true;
-  private issPointIndex = -1;
-  private issLabelIndex = -1;
+  // In-place point refs — created once, positions updated per tick
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private satPointRefs: { sat: SatelliteData; baseColor: Color; point: any }[] = [];
+  private lastBuildCameraLat: number | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private issPointRef: any = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -221,8 +223,105 @@ export class SatelliteManager {
     // Artemis trajectory is drawn on demand via setArtemisView()
     this.artemisOrbitLines.show = false;
 
+    this.ensureSpacecraftPrimitives();
     this.update();
     this.startUpdating();
+  }
+
+  /** Create the ISS/Artemis billboards + labels once; update() moves them in place. */
+  private ensureSpacecraftPrimitives() {
+    if (!this.spaceshipBillboards || !this.issLabel) return;
+
+    if (this.issSat && !this.issPointRef) {
+      this.issPointRef = this.spaceshipBillboards.add({
+        position: Cartesian3.ZERO,
+        image: this.issIcon!,
+        scale: 0.8,
+        alignedAxis: Cartesian3.ZERO,
+        show: false,
+        scaleByDistance: new NearFarScalar(1e6, 1.2, 3e7, 0.6),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      });
+      this.issLabelRef = this.issLabel.add({
+        position: Cartesian3.ZERO,
+        text: "ISS",
+        font: "bold 13px sans-serif",
+        fillColor: Color.fromCssColorString("#FFD700"),
+        outlineColor: Color.BLACK,
+        outlineWidth: 3,
+        style: 2, // FILL_AND_OUTLINE
+        horizontalOrigin: HorizontalOrigin.LEFT,
+        verticalOrigin: VerticalOrigin.CENTER,
+        pixelOffset: new Cartesian2(14, 0),
+        show: false,
+        scaleByDistance: new NearFarScalar(1e6, 1.0, 3e7, 0.5),
+      });
+    }
+
+    if (!this.artemisPointRef) {
+      this.artemisPointRef = this.spaceshipBillboards.add({
+        position: Cartesian3.ZERO,
+        image: this.artemisIcon!,
+        scale: 1.0,
+        alignedAxis: Cartesian3.ZERO,
+        show: false,
+        scaleByDistance: new NearFarScalar(1e7, 1.5, 5e8, 0.8),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      });
+      this.artemisLabelRef = this.issLabel.add({
+        position: Cartesian3.ZERO,
+        text: "ARTEMIS II — ORION",
+        font: "bold 12px sans-serif",
+        fillColor: Color.fromCssColorString("#FF8C00"),
+        outlineColor: Color.BLACK,
+        outlineWidth: 3,
+        style: 2,
+        horizontalOrigin: HorizontalOrigin.LEFT,
+        verticalOrigin: VerticalOrigin.CENTER,
+        pixelOffset: new Cartesian2(18, 0),
+        show: false,
+        scaleByDistance: new NearFarScalar(1e7, 1.0, 5e8, 0.5),
+      });
+    }
+  }
+
+  /**
+   * Build point primitives once for the current type filter / camera latitude.
+   * update() then only moves them — no per-tick create/destroy churn.
+   */
+  private rebuildSatPoints() {
+    if (!this.points || this.viewer.isDestroyed()) return;
+
+    this.points.removeAll();
+    this.satPointRefs = [];
+
+    const cameraLat = CesiumMath.toDegrees(this.viewer.camera.positionCartographic.latitude);
+    this.lastBuildCameraLat = cameraLat;
+
+    // Score satellites by inclination proximity to camera latitude, keep nearest N
+    const scored: { sat: SatelliteData; dist: number }[] = [];
+    for (const sat of this.satellites) {
+      if (isISS(sat)) continue; // rendered as billboard
+      if (!this.visibleTypes.has(sat.type)) continue;
+      const dlat = Math.abs(cameraLat - (sat.satrec as unknown as Record<string, number>).inclo * 57.3);
+      scored.push({ sat, dist: dlat });
+    }
+    scored.sort((a, b) => a.dist - b.dist);
+
+    for (const { sat } of scored.slice(0, this.maxVisibleSats)) {
+      const baseColor = getTypeColors()[sat.type] ?? Color.WHITE;
+      const size = sat.type === "station" ? 8 : sat.type === "starlink" ? 3 : 5;
+      const point = this.points.add({
+        position: Cartesian3.ZERO,
+        pixelSize: size,
+        color: baseColor,
+        outlineColor: sat.type === "starlink" ? Color.TRANSPARENT : Color.WHITE.withAlpha(0.5),
+        outlineWidth: sat.type === "starlink" ? 0 : 1,
+        show: false,
+        scaleByDistance: new NearFarScalar(1e6, 1.2, 3e7, 0.5),
+      });
+      this.satPointRefs.push({ sat, baseColor, point });
+    }
   }
 
   private drawISSOrbit() {
@@ -263,78 +362,44 @@ export class SatelliteManager {
     const fadeMax = 3_000_000;
     const fadeFactor = Math.max(0, Math.min(1, (cameraHeight - fadeMin) / (fadeMax - fadeMin)));
 
-    // Clear existing points and billboards
-    this.points.removeAll();
-    this.spaceshipBillboards?.removeAll();
-    this.issLabel.removeAll();
-    this.issPointIndex = -1;
-    this.issLabelIndex = -1;
-    this.issPointRef = null;
-    this.artemisPointRef = null;
-    this.issLabelRef = null;
-    this.artemisLabelRef = null;
-
     // Hide ISS/Artemis when zoomed in close to surface (below 500km altitude)
     const showSpacecraft = cameraHeight > 500_000;
 
-    // Calculate ISS position
+    // Calculate ISS position — billboard/label are persistent, just move them
     let issPos: SatellitePosition | null = null;
     if (this.issSat && showSpacecraft) {
       issPos = getSatellitePosition(this.issSat, now);
-      if (issPos) {
-        const cartesian = Cartesian3.fromDegrees(
-          issPos.longitude,
-          issPos.latitude,
-          issPos.altitude * 1000
-        );
-
-        // ISS spaceship billboard with pulsing scale, rotated to heading
-        const issPulse = 0.8 + Math.sin(Date.now() / 300) * 0.15;
-
-        this.issPointRef = this.spaceshipBillboards!.add({
-          position: cartesian,
-          image: this.issIcon!,
-          scale: issPulse,
-          rotation: -issPos.heading, // Cesium rotation is CCW, heading is CW
-          alignedAxis: Cartesian3.ZERO, // align to screen
-          show: true,
-          scaleByDistance: new NearFarScalar(1e6, 1.2, 3e7, 0.6),
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        });
-        this.issPointIndex = 0;
-
-        // ISS label — always visible
-        this.issLabelRef = this.issLabel.add({
-          position: cartesian,
-          text: "ISS",
-          font: "bold 13px sans-serif",
-          fillColor: Color.fromCssColorString("#FFD700"),
-          outlineColor: Color.BLACK,
-          outlineWidth: 3,
-          style: 2, // FILL_AND_OUTLINE
-          horizontalOrigin: HorizontalOrigin.LEFT,
-          verticalOrigin: VerticalOrigin.CENTER,
-          pixelOffset: new Cartesian2(14, 0),
-          show: true,
-          scaleByDistance: new NearFarScalar(1e6, 1.0, 3e7, 0.5),
-        });
-        this.issLabelIndex = 0;
-
-        // Track ISS if tracking mode is on
-        if (this.isTracking) {
-          viewer.camera.lookAt(
-            cartesian,
-            new Cartesian3(0, 0, issPos.altitude * 1000 + 2_000_000)
-          );
-        }
+    }
+    if (issPos && this.issPointRef) {
+      const cartesian = Cartesian3.fromDegrees(
+        issPos.longitude,
+        issPos.latitude,
+        issPos.altitude * 1000
+      );
+      this.issPointRef.position = cartesian;
+      this.issPointRef.scale = 0.8 + Math.sin(Date.now() / 300) * 0.15;
+      this.issPointRef.rotation = -issPos.heading; // Cesium rotation is CCW, heading is CW
+      this.issPointRef.show = true;
+      if (this.issLabelRef) {
+        this.issLabelRef.position = cartesian;
+        this.issLabelRef.show = true;
       }
+
+      // Track ISS if tracking mode is on
+      if (this.isTracking) {
+        viewer.camera.lookAt(
+          cartesian,
+          new Cartesian3(0, 0, issPos.altitude * 1000 + 2_000_000)
+        );
+      }
+    } else {
+      if (this.issPointRef) this.issPointRef.show = false;
+      if (this.issLabelRef) this.issLabelRef.show = false;
     }
 
     // Render Artemis II / Orion (only during active mission)
     const orion = showSpacecraft && !isMissionComplete(now) ? getOrionPosition(now) : null;
-    if (orion) {
-      const artemisPulse = 1.0 + Math.sin(Date.now() / 250) * 0.2;
-
+    if (orion && this.artemisPointRef) {
       // Compute Artemis heading from position delta
       let artemisRotation = 0;
       const futureOrion = getOrionPosition(new Date(now.getTime() + 60_000));
@@ -346,31 +411,14 @@ export class SatelliteManager {
         artemisRotation = -Math.atan2(dLon, dLat);
       }
 
-      this.artemisPointRef = this.spaceshipBillboards!.add({
-        position: orion.position,
-        image: this.artemisIcon!,
-        scale: artemisPulse,
-        rotation: artemisRotation,
-        alignedAxis: Cartesian3.ZERO,
-        show: true,
-        scaleByDistance: new NearFarScalar(1e7, 1.5, 5e8, 0.8),
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      });
-
-      this.artemisLabelRef = this.issLabel.add({
-        position: orion.position,
-        text: "ARTEMIS II — ORION",
-        font: "bold 12px sans-serif",
-        fillColor: Color.fromCssColorString("#FF8C00"),
-        outlineColor: Color.BLACK,
-        outlineWidth: 3,
-        style: 2,
-        horizontalOrigin: HorizontalOrigin.LEFT,
-        verticalOrigin: VerticalOrigin.CENTER,
-        pixelOffset: new Cartesian2(18, 0),
-        show: true,
-        scaleByDistance: new NearFarScalar(1e7, 1.0, 5e8, 0.5),
-      });
+      this.artemisPointRef.position = orion.position;
+      this.artemisPointRef.scale = 1.0 + Math.sin(Date.now() / 250) * 0.2;
+      this.artemisPointRef.rotation = artemisRotation;
+      this.artemisPointRef.show = true;
+      if (this.artemisLabelRef) {
+        this.artemisLabelRef.position = orion.position;
+        this.artemisLabelRef.show = true;
+      }
 
       // Track Artemis — side view showing Earth, Artemis, and Moon
       if (this.isTrackingArtemis) {
@@ -397,44 +445,45 @@ export class SatelliteManager {
           },
         });
       }
+    } else {
+      if (this.artemisPointRef) this.artemisPointRef.show = false;
+      if (this.artemisLabelRef) this.artemisLabelRef.show = false;
     }
 
-    // Only render other satellites if layer is visible and zoomed out enough
-    if (this.isVisible && fadeFactor > 0) {
-      // Score satellites by rough distance to camera, pick nearest MAX_VISIBLE_SATS
-      const scored: { sat: SatelliteData; dist: number }[] = [];
-      for (const sat of this.satellites) {
-        if (isISS(sat)) continue; // already rendered
-        const dlat = Math.abs(cameraLat - (sat.satrec as unknown as Record<string, number>).inclo * 57.3);
-        scored.push({ sat, dist: dlat });
+    // Update satellite points in place — skip all propagation when hidden
+    if (!this.isVisible || fadeFactor <= 0) {
+      this.points.show = false;
+      return;
+    }
+    this.points.show = true;
+
+    // Re-pick the visible subset only when the camera latitude drifts far
+    // from where the points were last built
+    if (
+      this.satPointRefs.length === 0 ||
+      this.lastBuildCameraLat === null ||
+      Math.abs(cameraLat - this.lastBuildCameraLat) > 15
+    ) {
+      this.rebuildSatPoints();
+    }
+
+    // Per-type faded colors computed once per tick, not per satellite
+    const typeColors = getTypeColors();
+    const faded: Partial<Record<SatelliteType, Color>> = {};
+    const outlineFaded = Color.WHITE.withAlpha(fadeFactor * 0.5);
+    for (const { sat, baseColor, point } of this.satPointRefs) {
+      const pos = getSatellitePosition(sat, now);
+      if (!pos) {
+        point.show = false;
+        continue;
       }
-      scored.sort((a, b) => a.dist - b.dist);
-      const visible = scored.slice(0, this.maxVisibleSats);
-
-      for (const { sat } of visible) {
-        if (!this.visibleTypes.has(sat.type)) continue;
-        const pos = getSatellitePosition(sat, now);
-        if (!pos) continue;
-
-        const cartesian = Cartesian3.fromDegrees(
-          pos.longitude,
-          pos.latitude,
-          pos.altitude * 1000
-        );
-
-        const color = getTypeColors()[sat.type] ?? Color.WHITE;
-
-        const size = sat.type === "station" ? 8 : sat.type === "starlink" ? 3 : 5;
-        this.points.add({
-          position: cartesian,
-          pixelSize: size,
-          color: color.withAlpha(fadeFactor),
-          outlineColor: sat.type === "starlink" ? Color.TRANSPARENT : Color.WHITE.withAlpha(fadeFactor * 0.5),
-          outlineWidth: sat.type === "starlink" ? 0 : 1,
-          show: true,
-          scaleByDistance: new NearFarScalar(1e6, 1.2, 3e7, 0.5),
-        });
+      point.position = Cartesian3.fromDegrees(pos.longitude, pos.latitude, pos.altitude * 1000);
+      if (!faded[sat.type]) {
+        faded[sat.type] = (typeColors[sat.type] ?? baseColor).withAlpha(fadeFactor);
       }
+      point.color = faded[sat.type];
+      if (sat.type !== "starlink") point.outlineColor = outlineFaded;
+      point.show = true;
     }
   }
 
@@ -452,11 +501,21 @@ export class SatelliteManager {
 
   setVisible(visible: boolean) {
     this.isVisible = visible;
+    if (visible && this.satPointRefs.length === 0) {
+      this.rebuildSatPoints();
+    }
     this.update();
   }
 
   setVisibleTypes(types: Set<string>) {
     this.visibleTypes = types;
+    // Type filter changes which satellites get points — rebuild the set
+    if (this.isVisible) {
+      this.rebuildSatPoints();
+      this.update();
+    } else {
+      this.satPointRefs = [];
+    }
   }
 
   setISSOrbitVisible(visible: boolean) {
@@ -838,6 +897,11 @@ export class SatelliteManager {
     this.orbitLines = null;
     this.artemisOrbitLines = null;
     this.satellites = [];
+    this.satPointRefs = [];
+    this.issPointRef = null;
+    this.artemisPointRef = null;
+    this.issLabelRef = null;
+    this.artemisLabelRef = null;
     this.issSat = null;
   }
 }
